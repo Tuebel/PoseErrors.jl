@@ -2,7 +2,7 @@
 
 julia_version = "1.8.4"
 manifest_format = "2.0"
-project_hash = "f2b0246c4d75780a2d472b9d1376826e92038806"
+project_hash = "00b3f1c200b16b452731d7b83b0bfc15b6a7beb1"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
@@ -176,8 +176,10 @@ uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.4"
 
 [[deps.GLAbstraction]]
-deps = ["FixedPointNumbers", "ModernGL", "Printf", "StaticArrays", "ThreadPools"]
-git-tree-sha1 = "abd1515dc10539ee06eefe21eccefb9975e7775d"
+deps = ["ColorTypes", "FixedPointNumbers", "Logging", "ModernGL", "Printf", "StaticArrays", "ThreadPools"]
+git-tree-sha1 = "7fddca1d881450e6296ee036a3064f0917453f48"
+repo-rev = "master"
+repo-url = "https://github.com/Tuebel/GLAbstraction.jl.git"
 uuid = "ca6e7d0a-b0c9-59ca-8aba-aebf11497e1c"
 version = "0.7.0"
 
@@ -487,9 +489,9 @@ version = "0.7.0"
 
 [[deps.SciGL]]
 deps = ["CUDA", "ColorTypes", "CoordinateTransformations", "DocumentFormat", "FileIO", "FixedPointNumbers", "GLAbstraction", "GLFW", "GeometryBasics", "LinearAlgebra", "Logging", "MeshIO", "ModernGL", "Pkg", "Reexport", "Rotations", "SnoopPrecompile", "StaticArrays"]
-git-tree-sha1 = "d95a5e7e0bc56297a41f27b79d6bde246e7fb160"
+git-tree-sha1 = "556c2c7956ea4d68332edce6fb26d0e20786496a"
 repo-rev = "master"
-repo-url = "https://git-ce.rwth-aachen.de/irt/irtemplates/scigl.jl.git"
+repo-url = "https://git-ce.rwth-aachen.de/diss/scigl.jl.git"
 uuid = "e33cfb9f-2574-42f7-bc46-3c25fa028886"
 version = "0.1.8"
 

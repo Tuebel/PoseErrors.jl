@@ -5,14 +5,17 @@
 default:
   image: julia:latest
   before_script:
-    - julia --project=@. -e 'import Pkg; Pkg.add(url=first(ARGS)); Pkg.build();' https://gitlab-ci-token:$CI_JOB_TOKEN@git-ce.rwth-aachen.de/irt/irtemplates/scigl.jl.git
+    - apt update && apt install -y xvfb
+    # Add repo dependencies
+    - sed -i "s|https://git-ce.|https://gitlab-ci-token:$CI_JOB_TOKEN@git-ce.|g" Manifest.toml
+    - xvfb-run -a julia --project=@. -e 'import Pkg; Pkg.instantiate(); Pkg.build();'
 
 test:
   stage: test
   script:
     - apt update && apt install -y python3-pip lcov
     - pip install lcov_cobertura
-    - julia --project=@. -e 'using Pkg; Pkg.add("LocalCoverage"); using LocalCoverage; cov = generate_coverage("PoseErrors"; run_test = true); generate_xml(cov, "coverage.xml"); html_coverage(cov; dir="coverage_html"); report_coverage_and_exit(cov; target_coverage=70);'
+    - xvfb-run -a julia --project=@. -e 'using Pkg; Pkg.add("LocalCoverage"); using LocalCoverage; cov = generate_coverage("PoseErrors"; run_test = true); generate_xml(cov, "coverage.xml"); html_coverage(cov; dir="coverage_html"); report_coverage_and_exit(cov; target_coverage=70);'
   coverage: '/TOTAL.*│\s*(\d+)\%/'
   artifacts:
     paths:
@@ -26,8 +29,7 @@ test:
 pages:
   stage: deploy
   script:
-    - julia --project=docs -e 'import Pkg; Pkg.add(url=first(ARGS)); Pkg.develop(path=pwd()); Pkg.instantiate();' https://gitlab-ci-token:$CI_JOB_TOKEN@git-ce.rwth-aachen.de/irt/irtemplates/scigl.jl.git
-    - julia --project=docs --color=yes docs/make.jl
+    - xvfb-run -a julia --project=@. -e 'using Pkg; Pkg.add("Documenter"); Pkg.instantiate(); include("docs/make.jl");'
     - mv docs/build public # move to the directory picked up by Gitlab pages
   artifacts:
     paths:

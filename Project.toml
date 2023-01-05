@@ -4,5 +4,12 @@ authors = ["Tim Redick <t.redick@irt.rwth-aachen.de>"]
 version = "0.1.0"
 
 [deps]
+GLAbstraction = "ca6e7d0a-b0c9-59ca-8aba-aebf11497e1c"
 NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"
 SciGL = "e33cfb9f-2574-42f7-bc46-3c25fa028886"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
