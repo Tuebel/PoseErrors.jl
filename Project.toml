@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
+Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 GLAbstraction = "ca6e7d0a-b0c9-59ca-8aba-aebf11497e1c"
 GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
 NearestNeighbors = "b8a86587-4115-5ab1-83bc-aa920d37bbce"

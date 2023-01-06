@@ -40,7 +40,7 @@ function nearest_neighbor_distances(points, ground_truth, estimate)
     gt_points = transform_points(points, ground_truth)
     es_points = transform_points(points, estimate)
 
-    tree = KDTree(es_points)
+    tree = KDTree(es_points, Euclidean())
     _, distances = nn(tree, gt_points)
     return distances
 end
@@ -50,5 +50,6 @@ end
 Returns an AbstractVector{<:SVector} which can be processed by NearestNeighbors.jl
 """
 transform_points(points::AbstractVector{<:AbstractVector}, pose::AffineMap) = pose.(SVector.(points))
+transform_points(points::AbstractMatrix, pose) = transform_points([SVector{3}(x) for x in eachcol(points)], pose)
 
 end # module PoseErrors
