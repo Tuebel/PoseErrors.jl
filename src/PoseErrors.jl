@@ -1,10 +1,12 @@
 module PoseErrors
 
+export add_error
 export adds_error
 export mdds_error
 
 # Geometry
 using CoordinateTransformations
+using Distances
 using GeometryBasics
 using Rotations
 using StaticArrays
@@ -15,6 +17,13 @@ using Statistics
 
 # For projection based methods
 using SciGL
+
+"""
+    add_error(points, ground_truth, estimate)
+Average Distance of Model Points for objects with no indistinguishable views (Hinterstoisser et al. 2012).
+Reimplementation of https://github.com/thodan/bop_toolkit/blob/master/bop_toolkit_lib/pose_error.py
+"""
+add_error(points, ground_truth, estimate) = mean(model_point_distances(points, ground_truth, estimate))
 
 """
     adds_error(points, ground_truth, estimate)
@@ -34,7 +43,7 @@ mdds_error(points, ground_truth, estimate) = maximum(nearest_neighbor_distances(
 
 """
     nearest_neighbor_distances(points, ground_truth, estimate)
-Returns the distance of each gt point to it's corresponding nearest neighbor in the estimates.
+Returns the distance of each ground truth point to it's corresponding nearest neighbor in the estimates.
 """
 function nearest_neighbor_distances(points, ground_truth, estimate)
     gt_points = transform_points(points, ground_truth)
@@ -43,6 +52,16 @@ function nearest_neighbor_distances(points, ground_truth, estimate)
     tree = KDTree(es_points, Euclidean())
     _, distances = nn(tree, gt_points)
     return distances
+end
+
+"""
+    model_point_distances(points, ground_truth, estimate)
+Returns the distance of each ground truth model point to it's corresponding model point in the estimates.
+"""
+function model_point_distances(points, ground_truth, estimate)
+    gt_points = transform_points(points, ground_truth)
+    es_points = transform_points(points, estimate)
+    colwise(Euclidean(), gt_points, es_points)
 end
 
 """
