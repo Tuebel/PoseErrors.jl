@@ -21,7 +21,7 @@ using SciGL
 """
     add_error(points, ground_truth, estimate)
 Average Distance of Model Points for objects with no indistinguishable views (Hinterstoisser et al. 2012).
-Reimplementation of https://github.com/thodan/bop_toolkit/blob/master/bop_toolkit_lib/pose_error.py
+Reimplementation of [https://github.com/thodan/bop_toolkit/blob/master/bop_toolkit_lib/pose_error.py](BOP-toolkit).
 """
 add_error(points, ground_truth, estimate) = mean(model_point_distances(points, ground_truth, estimate))
 
@@ -29,7 +29,7 @@ add_error(points, ground_truth, estimate) = mean(model_point_distances(points, g
     adds_error(points, ground_truth, estimate)
 Average Distance of Model Points for objects with indistinguishable views (Hinterstoisser et al. 2012).
 Also known as ADD-S or ADI.
-Reimplementation of https://github.com/thodan/bop_toolkit/blob/master/bop_toolkit_lib/pose_error.py
+Reimplementation of [https://github.com/thodan/bop_toolkit/blob/master/bop_toolkit_lib/pose_error.py](BOP-toolkit).
 """
 adds_error(points, ground_truth, estimate) = mean(nearest_neighbor_distances(points, ground_truth, estimate))
 
