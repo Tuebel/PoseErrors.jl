@@ -1,3 +1,4 @@
+# Methods
 ```@index
 Pages   = ["methods.md"]
 ```
