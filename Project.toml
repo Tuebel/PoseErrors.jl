@@ -1,9 +1,10 @@
 name = "PoseErrors"
 uuid = "0e048aec-5af0-406a-9f6c-fdc882ab1032"
 authors = ["Tim Redick <t.redick@irt.rwth-aachen.de>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 GLAbstraction = "ca6e7d0a-b0c9-59ca-8aba-aebf11497e1c"

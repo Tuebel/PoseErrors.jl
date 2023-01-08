@@ -6,7 +6,8 @@ Maximum distances do not suffer from the surface sampling density as much.
 
 However, annotating the symmetries is tedious and heavily depends on the choice of coordinate frames.
 For a large set of objects like surgical instruments which are not exported in a standardized / symmetry aligned frame, this is impractical.
-So, similar to [Gorschlüter et al.](https://doi.org/10.3390/jimaging8030053) we use ADD-S and ([Hodan et. al 2016](https://doi.org/10.1007/978-3-319-49409-8_52)) as metrics.
+So, similar to ([Gorschlüter et al. 2022](https://doi.org/10.3390/jimaging8030053)) we use ADD-S and VDS ([Hodan et. al 2016](https://doi.org/10.1007/978-3-319-49409-8_52)) as metrics.
+
 
 # Maximum Distance of Model Points for indistinguishable views (MDD-S)
 To avoid defining symmetries and the influence of the mesh sampling, we implement the MDD-S by replacing the ``avg`` in ADD-S with ``max``:
