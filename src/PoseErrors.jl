@@ -3,6 +3,8 @@ module PoseErrors
 export add_error
 export adds_error
 export mdds_error
+export surface_discrepancy
+export visible_surface_discrepancy
 
 # Geometry
 using CoordinateTransformations
@@ -74,7 +76,6 @@ transform_points(points::AbstractVector{<:AbstractVector}, pose::AffineMap) = po
 transform_points(points::AbstractMatrix, pose) = transform_points([SVector{3}(x) for x in eachcol(points)], pose)
 
 # Projection / Rendering Based Metrics
-# TEST
 
 """
     visible_surface_discrepancy(depth_context, estimate, ground_truth, measurement, δ, τ)
@@ -84,7 +85,7 @@ Calculate the VSD according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-c
 function visible_surface_discrepancy(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, δ, τ)
     es_img, gt_img = draw_distance(depth_context, estimate, ground_truth)
     visible_es, visible_gt = pixel_visible.(es_img, measurement, δ), pixel_visible.(gt_img, measurement, δ)
-    surface_discrepancy(visible_es, visible_gt, ground_truth, τ)
+    surface_discrepancy(visible_es, visible_gt, τ)
 end
 
 """
@@ -101,7 +102,7 @@ Calculate the surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/
 """
 function surface_discrepancy(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, τ)
     es_img, gt_img = draw_distance(depth_context, estimate, ground_truth)
-    surface_discrepancy(es_img, gt_img, ground_truth, τ)
+    surface_discrepancy(es_img, gt_img, τ)
 end
 
 """
@@ -110,11 +111,11 @@ Calculate the surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/
 τ is the misalignment tolerance.
 For the calculation of the VSD, the images must have been masked.
 """
-function surface_discrepancy(estimate::AbstractArray, ground_truth::AbstractArray, τ)
+function surface_discrepancy(estimate::AbstractArray{T}, ground_truth::AbstractArray{U}, τ::V) where {T,U,V}
     union_count = sum(@. estimate > 0 || ground_truth > 0)
     # early stopping and no division by zero
     if iszero(union_count)
-        return one(eltype(estimate))
+        return one(promote(T, U, V))
     end
     costs = discrepancy_cost.(estimate, ground_truth, τ)
     # Average of the costs for the union pixels
@@ -132,11 +133,11 @@ function discrepancy_cost(dist_a, dist_b, τ)
         # Do not add any cost if not part of union
         return false
     elseif a_valid ⊻ b_valid
-        # Part of intersection. Cost if misalignment tolerance is violated
-        return abs(dist_b - dist_a) > τ
-    else
         # Not part of intersection -> always cost
         return true
+    else
+        # Part of intersection. Cost if misalignment tolerance is violated
+        return abs(dist_b - dist_a) > τ
     end
 end
 
@@ -145,7 +146,7 @@ end
 Returns a tuple of the depth images for the estimate and ground truth.
 """
 function draw_distance(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene)
-    if last(size(distance_context) > 1)
+    if last(size(distance_context)) > 1
         imgs = draw(distance_context, [estimate, ground_truth])
         es_img = @view(imgs[:, :, 1])
         gt_img = @view(imgs[:, :, 2])
