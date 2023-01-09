@@ -74,9 +74,14 @@ transform_points(points::AbstractVector{<:AbstractVector}, pose::AffineMap) = po
 transform_points(points::AbstractMatrix, pose) = transform_points([SVector{3}(x) for x in eachcol(points)], pose)
 
 # Projection / Rendering Based Metrics
-# TODO Doc & TEST
+# TEST
 
-function visible_surface_discrepancy(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement, δ, τ)
+"""
+    visible_surface_discrepancy(depth_context, estimate, ground_truth, measurement, δ, τ)
+Calculate the VSD according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
+δ is used as tolerance for the visibility masks and τ is the misalignment tolerance.
+"""
+function visible_surface_discrepancy(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, δ, τ)
     es_img, gt_img = draw_distance(depth_context, estimate, ground_truth)
     visible_es, visible_gt = pixel_visible.(es_img, measurement, δ), pixel_visible.(gt_img, measurement, δ)
     surface_discrepancy(visible_es, visible_gt, ground_truth, τ)
@@ -89,30 +94,50 @@ Otherwise, zero is returned.
 """
 pixel_visible(render, measurement, δ) = render <= measurement + δ ? render : zero(render)
 
-
+"""
+    surface_discrepancy(depth_context, estimate, ground_truth, τ)
+Calculate the surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) by rendering two scenes.
+τ is the misalignment tolerance, for the VSD, the images must have been masked.
+"""
 function surface_discrepancy(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, τ)
     es_img, gt_img = draw_distance(depth_context, estimate, ground_truth)
     surface_discrepancy(es_img, gt_img, ground_truth, τ)
 end
 
+"""
+    surface_discrepancy(estimate, ground_truth, τ)
+Calculate the surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) for two rendered distance images.
+τ is the misalignment tolerance.
+For the calculation of the VSD, the images must have been masked.
+"""
 function surface_discrepancy(estimate::AbstractArray, ground_truth::AbstractArray, τ)
     union_count = sum(@. estimate > 0 || ground_truth > 0)
     # early stopping and no division by zero
     if iszero(union_count)
         return one(eltype(estimate))
     end
-    costs = pixel_cost.(estimate, ground_truth, τ)
+    costs = discrepancy_cost.(estimate, ground_truth, τ)
     # Average of the costs for the union pixels
     sum(costs) / union_count
 end
 
-function pixel_cost(dist_a, dist_b, τ)
-    # Do not any cost if not part of intersection
-    if dist_a <= 0 && dist_b <= 0
+"""
+    discrepancy_cost(dist_a, dist_b, τ)
+Step function costs according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
+Returns true (1) adding cost and false (0) for no cost
+"""
+function discrepancy_cost(dist_a, dist_b, τ)
+    a_valid, b_valid = (dist_a, dist_b) .> 0
+    if !a_valid && !b_valid
+        # Do not add any cost if not part of union
         return false
+    elseif a_valid ⊻ b_valid
+        # Part of intersection. Cost if misalignment tolerance is violated
+        return abs(dist_b - dist_a) > τ
+    else
+        # Not part of intersection -> always cost
+        return true
     end
-    # Cost 1 if part of intersection & violation of misalignment tolerance
-    return abs(dist_b - dist_a) > τ
 end
 
 """
