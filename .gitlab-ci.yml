@@ -29,7 +29,7 @@ test:
 pages:
   stage: deploy
   script:
-    - julia --project=@. -e 'using Pkg; Pkg.add("Documenter"); Pkg.instantiate(); include("docs/make.jl");'
+    - xvfb-run -a julia --project=@. -e 'using Pkg; Pkg.add("Documenter"); Pkg.instantiate(); include("docs/make.jl");'
     - mv docs/build public # move to the directory picked up by Gitlab pages
   artifacts:
     paths:
