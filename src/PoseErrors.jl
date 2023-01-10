@@ -4,9 +4,11 @@ export add_error
 export adds_error
 export mdds_error
 export model_diameter
-export pdm_avg_recall
+export pdm_recall_bop18
+export pdm_recall_bop19
 export surface_discrepancy
-export vsd_avg_recall
+export vsd_recall_bop18
+export vsd_recall_bop19
 export vsd_error
 export vsd_errors_bop19
 
@@ -110,13 +112,13 @@ convert_points(points::Mesh) = convert_points(points.position)
 # Projection / Rendering Based Metrics
 
 """
-    vsd_errors_bop19(depth_context, estimate, ground_truth, measurement, diameter, [δ=15e-3])
-Calculate the visible surface discrepancy errors according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) by increasing τ as 5%:5%:50% of the object diameter `⌀`.
+    vsd_errors_bop19(depth_context, estimate, ground_truth, measurement, diameter, [δ=0.015])
+Calculate the visible surface discrepancy errors according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) by increasing τ as 0.05:0.05:0.5 of the object `diameter`.
 δ is used as tolerance for the visibility masks.
 """
-function vsd_errors_bop19(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, diameter, δ=15e-3)
+function vsd_errors_bop19(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, diameter, δ=0.015)
     # 5%-50% of the object diameter in 5% steps
-    taus = [t * diameter for t in 5e-2:5e-2:50e-2]
+    taus = [t * diameter for t in 0.05:0.05:0.5]
     [vsd_error(depth_context, estimate, ground_truth, measurement, δ, τ) for τ in taus]
 end
 
@@ -125,7 +127,7 @@ end
 Calculate the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
 δ is used as tolerance for the visibility masks and τ is the misalignment tolerance.
 """
-function vsd_error(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, δ, τ)
+function vsd_error(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, δ=0.015, τ=0.02)
     es_img, gt_img = draw_distance(depth_context, estimate, ground_truth)
     visible_es, visible_gt = pixel_visible.(es_img, measurement, δ), pixel_visible.(gt_img, measurement, δ)
     surface_discrepancy(visible_es, visible_gt, τ)
@@ -208,20 +210,26 @@ function draw_distance(distance_context::OffscreenContext, estimate::Scene, grou
 end
 
 # Performance Scores
+
+pdm_recall_bop18(diameter, distances, threshold=0.1) = pdm_correct(diameter, distances, threshold) |> mean
+pdm_recall_bop19(diameter, distances, thresholds=0.05:0.05:0.5) = pdm_correct(diameter, distances, thresholds) |> mean
+
 """
-    pdm_avg_recall(diameter. distances, [thresholds=0.05:0.05:0.5])
+    pdm_avg_recall(diameter. distances, thresholds)
 The fraction of annotated object instances, for which a correct pose is estimated, is referred to as recall. 
 Poses are considered correct for `distance < threshold * diameter`.
 """
-pdm_avg_recall(diameter, distances, thresholds=0.05:0.05:0.5) = pdm_correct(diameter, distances, thresholds) |> mean
-pdm_correct(diameters, distances, thresholds=5e-2:5e-2:50e-2) = [e < θ * diameters for e in distances, θ in thresholds]
+pdm_correct(diameters, distances, thresholds) = [e < θ * diameters for e in distances, θ in thresholds]
+
+
+vsd_recall_bop18(discrepancies, thresholds=0.3) = vsd_correct(discrepancies, thresholds) |> mean
+vsd_recall_bop19(discrepancies, thresholds=0.05:0.05:0.5) = vsd_correct(discrepancies, thresholds) |> mean
 
 """
     vsd_avg_recall(discrepancies, [thresholds=0.05:0.05:0.5])
 The fraction of annotated object instances, for which a correct pose is estimated, is referred to as recall. 
 Poses are considered correct for `discrepancy < threshold`.
 """
-vsd_avg_recall(discrepancies, thresholds=0.05:0.05:0.5) = vsd_correct(discrepancies, thresholds) |> mean
-vsd_correct(discrepancies, thresholds=0.05:0.05:0.5) = [e < θ for e in discrepancies, θ in thresholds]
+vsd_correct(discrepancies, thresholds) = [e < θ for e in discrepancies, θ in thresholds]
 
 end # module PoseErrors

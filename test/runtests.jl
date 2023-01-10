@@ -88,7 +88,7 @@ es_scene = Scene(camera, [cube])
 es_img = draw(gl_context, es_scene) |> copy
 
 # Pixel visibility
-δ = 15e-3
+δ = 0.015
 gt_mask = PoseErrors.pixel_visible.(gt_img, ms_img, δ)
 es_mask = PoseErrors.pixel_visible.(es_img, ms_img, δ)
 
@@ -100,7 +100,7 @@ es_mask = PoseErrors.pixel_visible.(es_img, ms_img, δ)
     @test sum(gt_img .> 0) > sum(gt_mask .> 0)
 end
 
-τ = 20e-3
+τ = 0.02
 @testset "Surface Discrepancy" begin
     sd = @inferred surface_discrepancy(gl_context, es_scene, gt_scene, τ)
     @test 0 < sd < 1
@@ -108,7 +108,6 @@ end
     @test sd < surface_discrepancy(gl_context, es_scene, gt_scene, τ * 0.1)
 end
 
-δ = 15e-3
 @testset "Visible Surface Discrepancy" begin
     vsd = @inferred vsd_error(gl_context, es_scene, gt_scene, ms_img, δ, τ)
     @test 0 < vsd < 1
@@ -129,17 +128,19 @@ end
 @testset "Performance scores / average recall" begin
     # Visual Surface Discrepancy
     mdd_s1 = @inferred mdds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
-    correct = PoseErrors.pdm_correct(model_diameter(cube_points), mdd_s1)
+    correct = PoseErrors.pdm_correct(model_diameter(cube_points), mdd_s1, 0.05:0.05:0.5)
     @test length(correct) == 10
-    recall = @inferred pdm_avg_recall(model_diameter(cube_points), mdd_s1)
+    recall = @inferred pdm_recall_bop19(model_diameter(cube_points), mdd_s1)
     @test recall == sum(correct) / length(correct)
     @test 0 < recall < 1
+    @test size(pdm_recall_bop18(model_diameter(cube_points), mdd_s1)) == ()
 
     # Point Distance
     vsd = @inferred vsd_errors_bop19(gl_context, es_scene, gt_scene, ms_img, model_diameter(points))
-    correct = PoseErrors.vsd_correct(vsd)
+    correct = PoseErrors.vsd_correct(vsd, 0.05:0.05:0.5)
     @test length(correct) == 10 * 10
-    recall = @inferred vsd_avg_recall(vsd)
+    recall = @inferred vsd_recall_bop19(vsd, 0.05:0.05:0.5)
     @test recall == sum(correct) / length(correct)
     @test 0 < recall < 1
+    @test size(vsd_recall_bop18(vsd, 0.05:0.05:0.5)) == ()
 end
