@@ -3,6 +3,7 @@ module PoseErrors
 export add_error
 export adds_error
 export mdds_error
+export model_diameter
 export surface_discrepancy
 export visible_surface_discrepancy
 
@@ -14,6 +15,7 @@ using Rotations
 using StaticArrays
 
 # Matching points and calculating distances ADD-S & MDD-S
+using Base.Iterators: drop
 using NearestNeighbors
 using Statistics
 
@@ -72,8 +74,30 @@ end
     transform_points(points, pose)
 Returns an AbstractVector{<:SVector} which can be processed by NearestNeighbors.jl
 """
-transform_points(points::AbstractVector{<:AbstractVector}, pose::AffineMap) = pose.(SVector.(points))
-transform_points(points::AbstractMatrix, pose) = transform_points([SVector{3}(x) for x in eachcol(points)], pose)
+transform_points(points::AbstractVector{<:AbstractVector}, pose::AffineMap) = pose.(convert_points(points))
+transform_points(points::AbstractMatrix, pose) = transform_points(convert_points(points), pose)
+
+convert_points(points::AbstractVector{<:AbstractVector}) = SVector.(points)
+convert_points(points::AbstractMatrix) = [SVector{3}(x) for x in eachcol(points)]
+
+"""
+    model_diameter(points)
+Calculate the maximum distance of two points in the model which is the diameter of the object.
+"""
+function model_diameter(points)
+    # Distances.jl does not like the StaticArray implementation of GeometryBasics.jl
+    points = convert_points(points)
+    # Type stable zero initialization
+    diameter = evaluate(Euclidean(), first(points), first(points))
+    for (idx, point_a) in enumerate(points)
+        # Previous and current point do not need to be compared again
+        for point_b in drop(points, idx)
+            dist = evaluate(Euclidean(), point_a, point_b)
+            diameter = dist > diameter ? dist : diameter
+        end
+    end
+    return diameter
+end
 
 # Projection / Rendering Based Metrics
 

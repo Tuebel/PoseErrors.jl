@@ -9,7 +9,7 @@ using Rotations
 using SciGL
 using Test
 
-points = rand(3, 10)
+points = rand(3, 1_000)
 pose0 = Translation(1.0, 0, 0) ∘ LinearMap(RotXYZ(0.5, 0, 0))
 pose1 = LinearMap(RotXYZ(0.1, 0, 0)) ∘ pose0
 
@@ -19,6 +19,12 @@ pose1 = LinearMap(RotXYZ(0.1, 0, 0)) ∘ pose0
     @test mapreduce(iszero, &, dists)
     dists = @inferred PoseErrors.nearest_neighbor_distances(points, pose0, pose1)
     @test mapreduce(x -> x > 0, &, dists)
+end
+
+@testset "Model diameter" begin
+    diameter = @inferred model_diameter(points)
+    # For 1_000 random points, diameter will be close to sqrt(3)
+    @test sqrt(3) - 0.2 < diameter < sqrt(3)
 end
 
 @testset "ADD" begin
