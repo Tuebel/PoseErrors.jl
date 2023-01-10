@@ -4,13 +4,16 @@ export add_error
 export adds_error
 export mdds_error
 export model_diameter
+export pdm_avg_recall
 export surface_discrepancy
-export visible_surface_discrepancy
+export vsd_avg_recall
+export vsd_error
+export vsd_errors_bop19
 
 # Geometry
 using CoordinateTransformations
 using Distances
-using GeometryBasics
+using GeometryBasics: Mesh
 using Rotations
 using StaticArrays
 
@@ -77,9 +80,6 @@ Returns an AbstractVector{<:SVector} which can be processed by NearestNeighbors.
 transform_points(points::AbstractVector{<:AbstractVector}, pose::AffineMap) = pose.(convert_points(points))
 transform_points(points::AbstractMatrix, pose) = transform_points(convert_points(points), pose)
 
-convert_points(points::AbstractVector{<:AbstractVector}) = SVector.(points)
-convert_points(points::AbstractMatrix) = [SVector{3}(x) for x in eachcol(points)]
-
 """
     model_diameter(points)
 Calculate the maximum distance of two points in the model which is the diameter of the object.
@@ -99,14 +99,33 @@ function model_diameter(points)
     return diameter
 end
 
+"""
+    convert_points(points)
+Support different point formats: vectors of points/vectors, meshes, matrices [point,n_points]
+"""
+convert_points(points::AbstractVector{<:AbstractVector}) = SVector{3}.(points)
+convert_points(points::AbstractMatrix) = [SVector{3}(x) for x in eachcol(points)]
+convert_points(points::Mesh) = convert_points(points.position)
+
 # Projection / Rendering Based Metrics
 
 """
-    visible_surface_discrepancy(depth_context, estimate, ground_truth, measurement, δ, τ)
-Calculate the VSD according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
+    vsd_errors_bop19(depth_context, estimate, ground_truth, measurement, diameter, [δ=15e-3])
+Calculate the visible surface discrepancy errors according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) by increasing τ as 5%:5%:50% of the object diameter `⌀`.
+δ is used as tolerance for the visibility masks.
+"""
+function vsd_errors_bop19(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, diameter, δ=15e-3)
+    # 5%-50% of the object diameter in 5% steps
+    taus = [t * diameter for t in 5e-2:5e-2:50e-2]
+    [vsd_error(depth_context, estimate, ground_truth, measurement, δ, τ) for τ in taus]
+end
+
+"""
+    vsd_error(depth_context, estimate, ground_truth, measurement, δ, τ)
+Calculate the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
 δ is used as tolerance for the visibility masks and τ is the misalignment tolerance.
 """
-function visible_surface_discrepancy(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, δ, τ)
+function vsd_error(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, δ, τ)
     es_img, gt_img = draw_distance(depth_context, estimate, ground_truth)
     visible_es, visible_gt = pixel_visible.(es_img, measurement, δ), pixel_visible.(gt_img, measurement, δ)
     surface_discrepancy(visible_es, visible_gt, τ)
@@ -117,7 +136,13 @@ end
 If the rendered pixel is in front of the measurement with a tolerance of δ, the render distance is returned.
 Otherwise, zero is returned.
 """
-pixel_visible(render, measurement, δ) = render <= measurement + δ ? render : zero(render)
+function pixel_visible(render, measurement, δ)
+    # BOP19 convention: No depth value is considered visible
+    if measurement <= 0
+        return render
+    end
+    render <= measurement + δ ? render : zero(render)
+end
 
 """
     surface_discrepancy(depth_context, estimate, ground_truth, τ)
@@ -181,5 +206,22 @@ function draw_distance(distance_context::OffscreenContext, estimate::Scene, grou
     end
     es_img, gt_img
 end
+
+# Performance Scores
+"""
+    pdm_avg_recall(diameter. distances, [thresholds=0.05:0.05:0.5])
+The fraction of annotated object instances, for which a correct pose is estimated, is referred to as recall. 
+Poses are considered correct for `distance < threshold * diameter`.
+"""
+pdm_avg_recall(diameter, distances, thresholds=0.05:0.05:0.5) = pdm_correct(diameter, distances, thresholds) |> mean
+pdm_correct(diameters, distances, thresholds=5e-2:5e-2:50e-2) = [e < θ * diameters for e in distances, θ in thresholds]
+
+"""
+    vsd_avg_recall(discrepancies, [thresholds=0.05:0.05:0.5])
+The fraction of annotated object instances, for which a correct pose is estimated, is referred to as recall. 
+Poses are considered correct for `discrepancy < threshold`.
+"""
+vsd_avg_recall(discrepancies, thresholds=0.05:0.05:0.5) = vsd_correct(discrepancies, thresholds) |> mean
+vsd_correct(discrepancies, thresholds=0.05:0.05:0.5) = [e < θ for e in discrepancies, θ in thresholds]
 
 end # module PoseErrors

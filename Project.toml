@@ -4,7 +4,6 @@ authors = ["Tim Redick <t.redick@irt.rwth-aachen.de>"]
 version = "0.2.0"
 
 [deps]
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 GLAbstraction = "ca6e7d0a-b0c9-59ca-8aba-aebf11497e1c"

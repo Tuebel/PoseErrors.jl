@@ -64,31 +64,35 @@ gl_context = depth_offscreen_context(WIDTH, HEIGHT, DEPTH, Array)
 camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 2)
 cube_path = joinpath(dirname(pathof(SciGL)), "..", "examples", "meshes", "cube.obj")
 cube = load_mesh(gl_context, cube_path)
+# Same as cube mesh
+cube_points = 0.3 * [[0.5, -0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5], [-0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, 0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, 0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5], [-0.5, -0.5, 0.5], [0.5, 0.5, -0.5]]
 
 # Ground truth scene
-cube = @set cube.pose.translation = Translation(0, 0, 1.3)
-cube = @set cube.pose.rotation = RotY(0.55)
+pose_gt = Pose(Translation(0, 0, 1.3), RotY(0.55))
+cube = @set cube.pose = pose_gt
 cube = @set cube.scale = Scale(0.3, 0.3, 0.3)
 gt_scene = Scene(camera, [cube])
-
 gt_img = draw(gl_context, gt_scene) |> copy
 
-# Estimate scene
-cube = @set cube.pose.rotation = RotY(0.5)
-es_scene = Scene(camera, [cube])
-es_img = draw(gl_context, es_scene) |> copy
-
 # Measured scene
-occlusion = @set cube.pose.translation = Translation(-0.2, 0, 1.3)
-occlusion = @set occlusion.pose.rotation = RotY(0)
-occlusion = @set occlusion.scale = Scale(0.5, 0.5, 0.35)
+pose_occlusion = Pose(Translation(0, 0, 1.3), RotY(0))
+occlusion = @set cube.pose = pose_occlusion
+occlusion = @set occlusion.scale = Scale(0.5, 0.5, 0.1)
 ms_scene = Scene(camera, [cube, occlusion])
 ms_img = draw(gl_context, ms_scene) |> copy
 
+# Estimate scene
+pose_es = Pose(Translation(0, 0.02, 1.3), RotYX(0.505, 0.05))
+cube = @set cube.pose = pose_es
+es_scene = Scene(camera, [cube])
+es_img = draw(gl_context, es_scene) |> copy
+
 # Pixel visibility
-δ = 15e-6
+δ = 15e-3
 gt_mask = PoseErrors.pixel_visible.(gt_img, ms_img, δ)
 es_mask = PoseErrors.pixel_visible.(es_img, ms_img, δ)
+
+
 @testset "Surface visibility" begin
     @test maximum(gt_mask) > 0
     @test maximum(es_mask) > 0
@@ -98,16 +102,44 @@ end
 
 τ = 20e-3
 @testset "Surface Discrepancy" begin
-    es_sd = @inferred surface_discrepancy(gl_context, es_scene, gt_scene, τ)
-    @test 0 < es_sd < 1
-    @test es_sd == surface_discrepancy(es_img, gt_img, τ)
-    @test es_sd < surface_discrepancy(gl_context, es_scene, gt_scene, τ * 0.1)
+    sd = @inferred surface_discrepancy(gl_context, es_scene, gt_scene, τ)
+    @test 0 < sd < 1
+    @test sd == surface_discrepancy(es_img, gt_img, τ)
+    @test sd < surface_discrepancy(gl_context, es_scene, gt_scene, τ * 0.1)
 end
 
 δ = 15e-3
 @testset "Visible Surface Discrepancy" begin
-    es_vsd = @inferred visible_surface_discrepancy(gl_context, es_scene, gt_scene, ms_img, δ, τ)
-    @test 0 < es_vsd < 1
-    # Must be larger since intersection will be smaller
-    @test es_vsd > surface_discrepancy(gl_context, es_scene, gt_scene, τ)
+    vsd = @inferred vsd_error(gl_context, es_scene, gt_scene, ms_img, δ, τ)
+    @test 0 < vsd < 1
+    @test vsd != surface_discrepancy(gl_context, es_scene, gt_scene, τ)
+end
+
+@testset "Visible Surface Discrepancy BOP" begin
+    vsd = @inferred vsd_errors_bop19(gl_context, es_scene, gt_scene, ms_img, model_diameter(cube_points))
+    @test size(vsd) == (10,)
+    @test mapreduce(&, vsd) do x
+        0 < x < 1
+    end
+    for idx in 2:length(vsd)
+        @test vsd[idx-1] >= vsd[idx]
+    end
+end
+
+@testset "Performance scores / average recall" begin
+    # Visual Surface Discrepancy
+    mdd_s1 = @inferred mdds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
+    correct = PoseErrors.pdm_correct(model_diameter(cube_points), mdd_s1)
+    @test length(correct) == 10
+    recall = @inferred pdm_avg_recall(model_diameter(cube_points), mdd_s1)
+    @test recall == sum(correct) / length(correct)
+    @test 0 < recall < 1
+
+    # Point Distance
+    vsd = @inferred vsd_errors_bop19(gl_context, es_scene, gt_scene, ms_img, model_diameter(points))
+    correct = PoseErrors.vsd_correct(vsd)
+    @test length(correct) == 10 * 10
+    recall = @inferred vsd_avg_recall(vsd)
+    @test recall == sum(correct) / length(correct)
+    @test 0 < recall < 1
 end
