@@ -4,13 +4,14 @@ export add_error
 export adds_error
 export mdds_error
 export model_diameter
-export pdm_recall_bop18
-export pdm_recall_bop19
 export surface_discrepancy
-export vsd_recall_bop18
-export vsd_recall_bop19
 export vsd_error
-export vsd_errors_bop19
+
+export bop19_recalls
+export discrepancy_recall_bop18
+export discrepancy_recall_bop19
+export distance_recall_bop18
+export distance_recall_bop19
 
 # Geometry
 using CoordinateTransformations
@@ -25,6 +26,7 @@ using NearestNeighbors
 using Statistics
 
 # For projection based methods
+using Accessors
 using SciGL
 
 # Point Distance Metrics
@@ -112,20 +114,12 @@ convert_points(points::Mesh) = convert_points(points.position)
 # Projection / Rendering Based Metrics
 
 """
-    vsd_errors_bop19(depth_context, estimate, ground_truth, measurement, diameter, [δ=0.015])
-Calculate the visible surface discrepancy errors according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) by increasing τ as 0.05:0.05:0.5 of the object `diameter`.
-δ is used as tolerance for the visibility masks.
-"""
-function vsd_errors_bop19(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, diameter, δ=0.015)
-    # 5%-50% of the object diameter in 5% steps
-    taus = [t * diameter for t in 0.05:0.05:0.5]
-    [vsd_error(depth_context, estimate, ground_truth, measurement, δ, τ) for τ in taus]
-end
-
-"""
-    vsd_error(depth_context, estimate, ground_truth, measurement, δ, τ)
+    vsd_error(depth_context, estimate, ground_truth, measurement, [δ=0.015, τ=0.02])
 Calculate the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
 δ is used as tolerance for the visibility masks and τ is the misalignment tolerance.
+
+Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and later use a range of `τ=0.04:0.05:0.5`.
+The BOP18 should only be used for parameter tuning and not evaluating the final scores.
 """
 function vsd_error(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, δ=0.015, τ=0.02)
     es_img, gt_img = draw_distance(depth_context, estimate, ground_truth)
@@ -211,25 +205,68 @@ end
 
 # Performance Scores
 
-pdm_recall_bop18(diameter, distances, threshold=0.1) = pdm_correct(diameter, distances, threshold) |> mean
-pdm_recall_bop19(diameter, distances, thresholds=0.05:0.05:0.5) = pdm_correct(diameter, distances, thresholds) |> mean
-
 """
-    pdm_avg_recall(diameter. distances, thresholds)
+    average_recall(errors, thresholds)
 The fraction of annotated object instances, for which a correct pose is estimated, is referred to as recall. 
-Poses are considered correct for `distance < threshold * diameter`.
+Poses are considered correct for `error < threshold`.
 """
-pdm_correct(diameters, distances, thresholds) = [e < θ * diameters for e in distances, θ in thresholds]
+average_recall(errors, thresholds) = mean([e < θ for e in errors, θ in thresholds])
 
-
-vsd_recall_bop18(discrepancies, thresholds=0.3) = vsd_correct(discrepancies, thresholds) |> mean
-vsd_recall_bop19(discrepancies, thresholds=0.05:0.05:0.5) = vsd_correct(discrepancies, thresholds) |> mean
+# BOP evaluation
+const BOP19_THRESHOLDS = 0.05:0.05:0.5
 
 """
-    vsd_avg_recall(discrepancies, [thresholds=0.05:0.05:0.5])
-The fraction of annotated object instances, for which a correct pose is estimated, is referred to as recall. 
-Poses are considered correct for `discrepancy < threshold`.
+    bop19_recalls(gl_context, camera, mesh, measurement, estimate, ground_truth; [scale=1, δ=0.015])
+Conveniently evaluate the average recalls for ADD-S, MDD-S and VSD using the BOP19 thresholds.
+Returns tuple of recalls `(adds, mdds, vsd)`.
+δ is used as tolerance for the visibility masks.
+scale changes the size of the mesh.
 """
-vsd_correct(discrepancies, thresholds) = [e < θ for e in discrepancies, θ in thresholds]
+function bop19_recalls(gl_context::OffscreenContext, camera::SceneObject{<:AbstractCamera}, mesh::Mesh, measurement::AbstractMatrix, estimate::Pose, ground_truth::Pose; scale=1, δ=0.015)
+    points = scale * mesh.position
+    diameter = model_diameter(points)
+    # ADDS / MDDS
+    gt_affine, es_affine = AffineMap.((ground_truth, estimate,))
+    adds_err = adds_error(points, es_affine, gt_affine)
+    mdds_err = mdds_error(points, es_affine, gt_affine)
+    adds, mdds = distance_recall_bop19.(diameter, (adds_err, mdds_err))
+    # VDS
+    model = load_mesh(gl_context, mesh)
+    model = @set model.scale = Scale(scale)
+    gt_model = @set model.pose = ground_truth
+    gt_scene = Scene(camera, [gt_model])
+    es_model = @set model.pose = estimate
+    es_scene = Scene(camera, [es_model])
+    vsd_err = [vsd_error(gl_context, es_scene, gt_scene, measurement, δ, τ) for τ in diameter * BOP19_THRESHOLDS]
+    vsd = average_recall(vsd_err, BOP19_THRESHOLDS)
+    return (adds, mdds, vsd)
+end
+
+"""
+    distance_recall_bop18(diameter, errors)
+For distance based metrics like ADD(S), MDD(S) or MSSD.
+According to (Hinterstoisser et al. 2012) a pose is considered correct if `error < 0.1 object_diameter`.
+"""
+distance_recall_bop18(diameter, errors) = average_recall(errors, 0.1 * diameter)
+
+"""
+    distance_recall_bop18(diameter, errors)
+For distance based metrics like ADD(S), MDD(S) or MSSD.
+According to BOP19, a pose is considered correct if `error < diameter * threshold` where `threshold ∈ 0.05:0.05:0.5`.
+"""
+distance_recall_bop19(diameter, distances) = average_recall(distances, BOP19_THRESHOLDS * diameter)
+
+"""
+    discrepancy_recall_bop19(errors)
+For discrepancy based methods like (V)SD.
+According to BOP18, a pose is considered correct if `error < threshold` where `threshold ∈ 0.05:0.05:0.5`.
+"""
+discrepancy_recall_bop18(discrepancies) = average_recall(discrepancies, 0.3)
+"""
+    discrepancy_recall_bop19(errors)
+For discrepancy based methods like (V)SD.
+According to BOP19, a pose is considered correct if `error < 0.3`.
+"""
+discrepancy_recall_bop19(errors) = average_recall(errors, BOP19_THRESHOLDS)
 
 end # module PoseErrors

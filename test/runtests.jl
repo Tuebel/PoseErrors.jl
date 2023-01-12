@@ -7,6 +7,7 @@ using CoordinateTransformations
 using PoseErrors
 using Rotations
 using SciGL
+using Statistics
 using Test
 
 points = rand(3, 1_000)
@@ -63,9 +64,10 @@ gl_context = depth_offscreen_context(WIDTH, HEIGHT, DEPTH, Array)
 
 camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 2)
 cube_path = joinpath(dirname(pathof(SciGL)), "..", "examples", "meshes", "cube.obj")
-cube = load_mesh(gl_context, cube_path)
-# Same as cube mesh
-cube_points = 0.3 * [[0.5, -0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5], [-0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [0.5, 0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, 0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, 0.5, 0.5], [-0.5, 0.5, -0.5], [0.5, -0.5, -0.5], [0.5, -0.5, -0.5], [0.5, 0.5, -0.5], [0.5, -0.5, 0.5], [-0.5, -0.5, 0.5], [-0.5, -0.5, 0.5], [0.5, 0.5, -0.5]]
+cube_mesh = load(cube_path)
+cube = load_mesh(gl_context, cube_mesh)
+# Same as cube mesh (which will be scaled by 0.3)
+cube_points = 0.3 * cube_mesh.position
 
 # Ground truth scene
 pose_gt = Pose(Translation(0, 0, 1.3), RotY(0.55))
@@ -114,33 +116,37 @@ end
     @test vsd != surface_discrepancy(gl_context, es_scene, gt_scene, τ)
 end
 
-@testset "Visible Surface Discrepancy BOP" begin
-    vsd = @inferred vsd_errors_bop19(gl_context, es_scene, gt_scene, ms_img, model_diameter(cube_points))
-    @test size(vsd) == (10,)
-    @test mapreduce(&, vsd) do x
-        0 < x < 1
-    end
-    for idx in 2:length(vsd)
-        @test vsd[idx-1] >= vsd[idx]
-    end
-end
-
 @testset "Performance scores / average recall" begin
-    # Visual Surface Discrepancy
-    mdd_s1 = @inferred mdds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
-    correct = PoseErrors.pdm_correct(model_diameter(cube_points), mdd_s1, 0.05:0.05:0.5)
-    @test length(correct) == 10
-    recall = @inferred pdm_recall_bop19(model_diameter(cube_points), mdd_s1)
-    @test recall == sum(correct) / length(correct)
-    @test 0 < recall < 1
-    @test size(pdm_recall_bop18(model_diameter(cube_points), mdd_s1)) == ()
-
     # Point Distance
-    vsd = @inferred vsd_errors_bop19(gl_context, es_scene, gt_scene, ms_img, model_diameter(points))
-    correct = PoseErrors.vsd_correct(vsd, 0.05:0.05:0.5)
-    @test length(correct) == 10 * 10
-    recall = @inferred vsd_recall_bop19(vsd, 0.05:0.05:0.5)
-    @test recall == sum(correct) / length(correct)
-    @test 0 < recall < 1
-    @test size(vsd_recall_bop18(vsd, 0.05:0.05:0.5)) == ()
+    mdd_s = @inferred mdds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
+    recall = @inferred distance_recall_bop18(model_diameter(cube_points), mdd_s)
+    @test recall == (mdd_s < 0.1 * model_diameter(cube_points))
+    @test 0 <= recall <= 1
+
+    recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdd_s)
+    bop_range = 0.05:0.05:0.5
+    @test recall == sum(mdd_s .< bop_range * model_diameter(cube_points)) / length(bop_range)
+    @test 0 <= recall <= 1
+
+
+    # Visual Surface Discrepancy
+    vsd = @inferred vsd_error(gl_context, es_scene, gt_scene, ms_img)
+    recall = @inferred discrepancy_recall_bop18(vsd)
+    @test recall == (vsd < 0.3)
+
+    vsd = [vsd_error(gl_context, es_scene, gt_scene, ms_img, 0.015, τ) for τ in model_diameter(cube_points) * bop_range]
+    recall = @inferred discrepancy_recall_bop19(vsd)
+    @test recall == mean([e < θ for e in vsd, θ in bop_range])
+
+    adds = @inferred adds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
+    adds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), adds)
+    mdds = @inferred mdds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
+    mdds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdds)
+    vsd = [vsd_error(gl_context, es_scene, gt_scene, ms_img, 0.015, τ) for τ in model_diameter(cube_points) * bop_range]
+    vsd_recall = @inferred discrepancy_recall_bop19(vsd)
+
+    adds_r, mdds_r, vsd_r = bop19_recalls(gl_context, camera, cube_mesh, ms_img, pose_es, pose_gt; scale=0.3)
+    @test adds_recall == adds_r
+    @test mdds_recall == mdds_r
+    @test vsd_recall == vsd_r
 end
