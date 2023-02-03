@@ -62,7 +62,7 @@ end
 WIDTH, HEIGHT, DEPTH = 640, 480, 1
 gl_context = depth_offscreen_context(WIDTH, HEIGHT, DEPTH, Array)
 
-camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 2)
+camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 2) |> Camera
 cube_path = joinpath(dirname(pathof(SciGL)), "..", "examples", "meshes", "cube.obj")
 cube_mesh = load(cube_path)
 cube = load_mesh(gl_context, cube_mesh)
