@@ -216,14 +216,13 @@ average_recall(errors, thresholds) = mean([e < θ for e in errors, θ in thresho
 const BOP19_THRESHOLDS = 0.05:0.05:0.5
 
 """
-    bop19_recalls(gl_context, camera, mesh, measurement, estimate, ground_truth; [scale=1, δ=0.015])
+    bop19_recalls(gl_context, camera, mesh, measurement, estimate, ground_truth; [δ=0.015])
 Conveniently evaluate the average recalls for ADD-S, MDD-S and VSD using the BOP19 thresholds.
 Returns tuple of recalls `(adds, mdds, vsd)`.
 δ is used as tolerance for the visibility masks.
-scale changes the size of the mesh.
 """
-function bop19_recalls(gl_context::OffscreenContext, camera::SceneObject{<:AbstractCamera}, mesh::Mesh, measurement::AbstractMatrix, estimate::Pose, ground_truth::Pose; scale=1, δ=0.015)
-    points = scale * mesh.position
+function bop19_recalls(gl_context::OffscreenContext, camera::SceneObject{<:AbstractCamera}, mesh::Mesh, measurement::AbstractMatrix, estimate::Pose, ground_truth::Pose; δ=0.015)
+    points = mesh.position
     diameter = model_diameter(points)
     # ADDS / MDDS
     gt_affine, es_affine = AffineMap.((ground_truth, estimate,))
@@ -232,7 +231,6 @@ function bop19_recalls(gl_context::OffscreenContext, camera::SceneObject{<:Abstr
     adds, mdds = distance_recall_bop19.(diameter, (adds_err, mdds_err))
     # VDS
     model = load_mesh(gl_context, mesh)
-    model = @set model.scale = Scale(scale)
     gt_model = @set model.pose = ground_truth
     gt_scene = Scene(camera, [gt_model])
     es_model = @set model.pose = estimate

@@ -64,22 +64,23 @@ gl_context = depth_offscreen_context(WIDTH, HEIGHT, DEPTH, Array)
 
 camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 2) |> Camera
 cube_path = joinpath(dirname(pathof(SciGL)), "..", "examples", "meshes", "cube.obj")
-cube_mesh = load(cube_path)
+cube_scale = Scale(0.3)
+cube_mesh = load(cube_path) |> cube_scale
 cube = load_mesh(gl_context, cube_mesh)
-# Same as cube mesh (which will be scaled by 0.3)
-cube_points = 0.3 * cube_mesh.position
+cube_points = cube_mesh.position
 
 # Ground truth scene
 pose_gt = Pose(Translation(0, 0, 1.3), RotY(0.55))
 cube = @set cube.pose = pose_gt
-cube = @set cube.scale = Scale(0.3, 0.3, 0.3)
 gt_scene = Scene(camera, [cube])
 gt_img = draw(gl_context, gt_scene) |> copy
 
 # Measured scene
 pose_occlusion = Pose(Translation(0, 0, 1.3), RotY(0))
-occlusion = @set cube.pose = pose_occlusion
-occlusion = @set occlusion.scale = Scale(0.5, 0.5, 0.1)
+occlusion_scale = Scale(0.5, 0.5, 0.1)
+occlusion_mesh = load(cube_path) |> occlusion_scale
+occlusion = load_mesh(gl_context, occlusion_mesh)
+occlusion = @set occlusion.pose = pose_occlusion
 ms_scene = Scene(camera, [cube, occlusion])
 ms_img = draw(gl_context, ms_scene) |> copy
 
@@ -145,7 +146,7 @@ end
     vsd = [vsd_error(gl_context, es_scene, gt_scene, ms_img, 0.015, τ) for τ in model_diameter(cube_points) * bop_range]
     vsd_recall = @inferred discrepancy_recall_bop19(vsd)
 
-    adds_r, mdds_r, vsd_r = bop19_recalls(gl_context, camera, cube_mesh, ms_img, pose_es, pose_gt; scale=0.3)
+    adds_r, mdds_r, vsd_r = bop19_recalls(gl_context, camera, cube_mesh, ms_img, pose_es, pose_gt)
     @test adds_recall == adds_r
     @test mdds_recall == mdds_r
     @test vsd_recall == vsd_r
