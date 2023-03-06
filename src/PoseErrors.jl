@@ -230,7 +230,7 @@ function bop19_recalls(gl_context::OffscreenContext, camera::SceneObject{<:Abstr
     mdds_err = mdds_error(points, es_affine, gt_affine)
     adds, mdds = distance_recall_bop19.(diameter, (adds_err, mdds_err))
     # VDS
-    model = load_mesh(gl_context, mesh)
+    model = upload_mesh(gl_context, mesh)
     gt_model = @set model.pose = ground_truth
     gt_scene = Scene(camera, [gt_model])
     es_model = @set model.pose = estimate

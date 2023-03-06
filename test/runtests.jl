@@ -66,7 +66,7 @@ camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 
 cube_path = joinpath(dirname(pathof(SciGL)), "..", "examples", "meshes", "cube.obj")
 cube_scale = Scale(0.3)
 cube_mesh = load(cube_path) |> cube_scale
-cube = load_mesh(gl_context, cube_mesh)
+cube = upload_mesh(gl_context, cube_mesh)
 cube_points = cube_mesh.position
 
 # Ground truth scene
@@ -79,7 +79,7 @@ gt_img = draw(gl_context, gt_scene) |> copy
 pose_occlusion = Pose(Translation(0, 0, 1.3), RotY(0))
 occlusion_scale = Scale(0.5, 0.5, 0.1)
 occlusion_mesh = load(cube_path) |> occlusion_scale
-occlusion = load_mesh(gl_context, occlusion_mesh)
+occlusion = upload_mesh(gl_context, occlusion_mesh)
 occlusion = @set occlusion.pose = pose_occlusion
 ms_scene = Scene(camera, [cube, occlusion])
 ms_img = draw(gl_context, ms_scene) |> copy
