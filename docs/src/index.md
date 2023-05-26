@@ -14,4 +14,6 @@ To avoid defining symmetries and the influence of the mesh sampling, we implemen
 ```math
 e_{MDDS}(\hat{\mathbf{P}},\mathbf{P};\mathcal{M})= \max_{\mathbf{x}_1 \in \mathcal{M}} \min_{\mathbf{x}_2 \in \mathcal{M}} \parallel \hat{\mathbf{P}} \mathbf{x}_1 - \mathbf{P} \mathbf{x}_2 \parallel_2
 ```
-As ([Hodan et. al 2016](https://doi.org/10.1007/978-3-319-49409-8_52)) describe ADD-S as the lower bound of the ADD error, the MDD-S should be the lower bound of the MSSD.
+As ([Hodan et. al 2016](https://doi.org/10.1007/978-3-319-49409-8_52)) describe ADD-S as the lower bound of the ADD error
+My disseration shows that a simple counter example can be constructed that shows that MDD-S is not the lower bound of MSSD.
+It heavily depends on the set of global symmetries used and makes comparability impossible.
