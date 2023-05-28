@@ -60,61 +60,78 @@ end
 
 # Surface discrepancy
 WIDTH, HEIGHT, DEPTH = 640, 480, 1
-gl_context = depth_offscreen_context(WIDTH, HEIGHT, DEPTH, Array)
 
-camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 2) |> Camera
+cv_camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 2)
+camera = cv_camera |> Camera
 cube_path = joinpath(dirname(pathof(SciGL)), "..", "examples", "meshes", "cube.obj")
 cube_scale = Scale(0.3)
 cube_mesh = load(cube_path) |> cube_scale
-cube = upload_mesh(gl_context, cube_mesh)
 cube_points = cube_mesh.position
 
-# Ground truth scene
+# Ground truth
 pose_gt = Pose(Translation(0, 0, 1.3), RotY(0.55))
-cube = @set cube.pose = pose_gt
-gt_scene = Scene(camera, [cube])
-gt_img = draw(gl_context, gt_scene) |> copy
+# Estimated
+pose_es = Pose(Translation(0, 0.02, 1.3), RotYX(0.505, 0.05))
 
-# Measured scene
+# Measured scene - typically a depth image not a distance map
+depth_context = depth_offscreen_context(WIDTH, HEIGHT, DEPTH, Array)
 pose_occlusion = Pose(Translation(0, 0, 1.3), RotY(0))
 occlusion_scale = Scale(0.5, 0.5, 0.1)
 occlusion_mesh = load(cube_path) |> occlusion_scale
-occlusion = upload_mesh(gl_context, occlusion_mesh)
+occlusion = upload_mesh(depth_context, occlusion_mesh)
 occlusion = @set occlusion.pose = pose_occlusion
-ms_scene = Scene(camera, [cube, occlusion])
-ms_img = draw(gl_context, ms_scene) |> copy
+cube_ms = upload_mesh(depth_context, cube_mesh)
+cube_ms = @set cube_ms.pose = pose_gt
+ms_scene = Scene(camera, [cube_ms, occlusion])
+ms_depth = draw(depth_context, ms_scene) |> copy
+
+# VSD uses distance maps
+distance_context = distance_offscreen_context(WIDTH, HEIGHT, DEPTH, Array)
+cube = upload_mesh(distance_context, cube_mesh)
+
+# Ground truth scene
+cube = @set cube.pose = pose_gt
+gt_scene = Scene(camera, [cube])
+gt_dist = draw(distance_context, gt_scene) |> copy
 
 # Estimate scene
-pose_es = Pose(Translation(0, 0.02, 1.3), RotYX(0.505, 0.05))
 cube = @set cube.pose = pose_es
 es_scene = Scene(camera, [cube])
-es_img = draw(gl_context, es_scene) |> copy
+es_dist = draw(distance_context, es_scene) |> copy
+
+# Depth to distance
+ms_dist = depth_to_distance(ms_depth, cv_camera)
+@testset "Depth to distance" begin
+    # in the middle where the closest points
+    @test minimum(ms_depth) ≈ minimum(ms_dist)
+    # outer points have largest z values, distance even larger
+    @test maximum(ms_depth) < maximum(ms_dist)
+end
 
 # Pixel visibility
 δ = 0.015
-gt_mask = PoseErrors.pixel_visible.(gt_img, ms_img, δ)
-es_mask = PoseErrors.pixel_visible.(es_img, ms_img, δ)
-
+gt_mask = PoseErrors.pixel_visible.(gt_dist, ms_dist, δ)
+es_mask = PoseErrors.pixel_visible.(es_dist, ms_dist, δ)
 
 @testset "Surface visibility" begin
     @test maximum(gt_mask) > 0
     @test maximum(es_mask) > 0
     @test gt_mask != es_mask
-    @test sum(gt_img .> 0) > sum(gt_mask .> 0)
+    @test sum(gt_dist .> 0) > sum(gt_mask .> 0)
 end
 
 τ = 0.02
 @testset "Surface Discrepancy" begin
-    sd = @inferred surface_discrepancy(gl_context, es_scene, gt_scene, τ)
+    sd = @inferred surface_discrepancy(distance_context, es_scene, gt_scene, τ)
     @test 0 < sd < 1
-    @test sd == surface_discrepancy(es_img, gt_img, τ)
-    @test sd < surface_discrepancy(gl_context, es_scene, gt_scene, τ * 0.1)
+    @test sd == surface_discrepancy(es_dist, gt_dist, τ)
+    @test sd < surface_discrepancy(distance_context, es_scene, gt_scene, τ * 0.1)
 end
 
 @testset "Visible Surface Discrepancy" begin
-    vsd = @inferred vsd_error(gl_context, es_scene, gt_scene, ms_img, δ, τ)
+    vsd = @inferred vsd_error(distance_context, es_scene, gt_scene, ms_dist, δ, τ)
     @test 0 < vsd < 1
-    @test vsd != surface_discrepancy(gl_context, es_scene, gt_scene, τ)
+    @test vsd != surface_discrepancy(distance_context, es_scene, gt_scene, τ)
 end
 
 @testset "Performance scores / average recall" begin
@@ -129,13 +146,12 @@ end
     @test recall == sum(mdd_s .< bop_range * model_diameter(cube_points)) / length(bop_range)
     @test 0 <= recall <= 1
 
-
     # Visual Surface Discrepancy
-    vsd = @inferred vsd_error(gl_context, es_scene, gt_scene, ms_img)
+    vsd = @inferred vsd_error(distance_context, es_scene, gt_scene, ms_dist)
     recall = @inferred discrepancy_recall_bop18(vsd)
     @test recall == (vsd < 0.3)
 
-    vsd = [vsd_error(gl_context, es_scene, gt_scene, ms_img, 0.015, τ) for τ in model_diameter(cube_points) * bop_range]
+    vsd = [vsd_error(distance_context, es_scene, gt_scene, ms_dist, 0.015, τ) for τ in model_diameter(cube_points) * bop_range]
     recall = @inferred discrepancy_recall_bop19(vsd)
     @test recall == mean([e < θ for e in vsd, θ in bop_range])
 
@@ -143,10 +159,10 @@ end
     adds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), adds)
     mdds = @inferred mdds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
     mdds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdds)
-    vsd = [vsd_error(gl_context, es_scene, gt_scene, ms_img, 0.015, τ) for τ in model_diameter(cube_points) * bop_range]
+    vsd = [vsd_error(distance_context, es_scene, gt_scene, ms_dist, 0.015, τ) for τ in model_diameter(cube_points) * bop_range]
     vsd_recall = @inferred discrepancy_recall_bop19(vsd)
 
-    adds_r, mdds_r, vsd_r = bop19_recalls(gl_context, camera, cube_mesh, ms_img, pose_es, pose_gt)
+    adds_r, mdds_r, vsd_r = bop19_recalls(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt)
     @test adds_recall == adds_r
     @test mdds_recall == mdds_r
     @test vsd_recall == vsd_r

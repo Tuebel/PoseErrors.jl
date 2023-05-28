@@ -3,9 +3,11 @@ module PoseErrors
 export add_error
 export adds_error
 export mdds_error
+export vsd_error
+
+export depth_to_distance
 export model_diameter
 export surface_discrepancy
-export vsd_error
 
 export bop19_recalls
 export discrepancy_recall_bop18
@@ -17,6 +19,7 @@ export distance_recall_bop19
 using CoordinateTransformations
 using Distances
 using GeometryBasics: Mesh
+using LinearAlgebra
 using Rotations
 using StaticArrays
 
@@ -114,39 +117,40 @@ convert_points(points::Mesh) = convert_points(points.position)
 # Projection / Rendering Based Metrics
 
 """
-    vsd_error(depth_context, estimate, ground_truth, measurement, [δ=0.015, τ=0.02])
+    vsd_error(distance_context, estimate, ground_truth, measured_depth, [δ=0.015, τ=0.02])
 Calculate the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
+Note that the `distance_context` and `measured_dist` must be / produce a distance map not a depth image.
 δ is used as tolerance for the visibility masks and τ is the misalignment tolerance.
 
 Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and later use a range of `τ=0.04:0.05:0.5`.
 The BOP18 should only be used for parameter tuning and not evaluating the final scores.
 """
-function vsd_error(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measurement::AbstractArray, δ=0.015, τ=0.02)
-    es_img, gt_img = draw_distance(depth_context, estimate, ground_truth)
-    visible_es, visible_gt = pixel_visible.(es_img, measurement, δ), pixel_visible.(gt_img, measurement, δ)
+function vsd_error(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measured_dist::AbstractArray, δ=0.015, τ=0.02)
+    es_img, gt_img = draw_distance(distance_context, estimate, ground_truth)
+    visible_es, visible_gt = pixel_visible.(es_img, measured_dist, δ), pixel_visible.(gt_img, measured_dist, δ)
     surface_discrepancy(visible_es, visible_gt, τ)
 end
 
 """
-    pixel_visible(render, measurement, δ)
-If the rendered pixel is in front of the measurement with a tolerance of δ, the render distance is returned.
+    pixel_visible(rendered_dist, measured_dist, δ)
+If the rendered pixel is in front of the measurement with a tolerance distance of δ, the render's distance is returned.
 Otherwise, zero is returned.
 """
-function pixel_visible(render, measurement, δ)
+function pixel_visible(rendered_dist, measured_dist, δ)
     # BOP19 convention: No depth value is considered visible
-    if measurement <= 0
-        return render
+    if measured_dist <= 0
+        return rendered_dist
     end
-    render <= measurement + δ ? render : zero(render)
+    rendered_dist <= measured_dist + δ ? rendered_dist : zero(rendered_dist)
 end
 
 """
-    surface_discrepancy(depth_context, estimate, ground_truth, τ)
+    surface_discrepancy(distance_context, estimate, ground_truth, τ)
 Calculate the surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) by rendering two scenes.
 τ is the misalignment tolerance, for the VSD, the images must have been masked.
 """
-function surface_discrepancy(depth_context::OffscreenContext, estimate::Scene, ground_truth::Scene, τ)
-    es_img, gt_img = draw_distance(depth_context, estimate, ground_truth)
+function surface_discrepancy(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene, τ)
+    es_img, gt_img = draw_distance(distance_context, estimate, ground_truth)
     surface_discrepancy(es_img, gt_img, τ)
 end
 
@@ -187,10 +191,11 @@ function discrepancy_cost(dist_a, dist_b, τ)
 end
 
 """
-    draw_distance(depth_context, estimate, ground_truth)
+    draw_distance(distance_context, estimate, ground_truth)
 Returns a tuple of the depth images for the estimate and ground truth.
 """
 function draw_distance(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene)
+    # Check whether drawing multiple scenes into a layered texture is supported
     if last(size(distance_context)) > 1
         imgs = draw(distance_context, [estimate, ground_truth])
         es_img = @view(imgs[:, :, 1])
@@ -202,6 +207,26 @@ function draw_distance(distance_context::OffscreenContext, estimate::Scene, grou
     end
     es_img, gt_img
 end
+
+"""
+    depth_to_distance(I::CartesianIndex, z, f_x, f_y, c_x, c_y)
+Given the pixel position as cartesian index I and the corresponding depth value, the distance is calculated by reprojecting the pixel to 3D via the OpenCV camera parameters.
+"""
+function depth_to_distance(I::CartesianIndex, z, f_x, f_y, c_x, c_y)
+    # OpenCV starts uses 0 based indexing
+    u, v = Tuple(I) .- 1
+    # Inverse of projection from https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html
+    x = (u - c_x) * z / f_x
+    y = (v - c_y) * z / f_y
+    LinearAlgebra.norm((x, y, z))
+end
+
+"""
+    depth_to_distance(depth_img, cv_camera::CvCamera)
+Calculates the distance image from the depth image using the OpenCv camera parameters for reprojecting the pixel to 3D.
+"""
+depth_to_distance(depth_img, cv_camera::CvCamera) =
+    depth_to_distance.(CartesianIndices(depth_img), depth_img, cv_camera.f_x, cv_camera.f_y, cv_camera.c_x, cv_camera.c_y)
 
 # Performance Scores
 
@@ -216,12 +241,12 @@ average_recall(errors, thresholds) = mean([e < θ for e in errors, θ in thresho
 const BOP19_THRESHOLDS = 0.05:0.05:0.5
 
 """
-    bop19_recalls(gl_context, camera, mesh, measurement, estimate, ground_truth; [δ=0.015])
+    bop19_recalls(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth; [δ=0.015])
 Conveniently evaluate the average recalls for ADD-S, MDD-S and VSD using the BOP19 thresholds.
 Returns tuple of recalls `(adds, mdds, vsd)`.
 δ is used as tolerance for the visibility masks.
 """
-function bop19_recalls(gl_context::OffscreenContext, camera::SceneObject{<:AbstractCamera}, mesh::Mesh, measurement::AbstractMatrix, estimate::Pose, ground_truth::Pose; δ=0.015)
+function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose; δ=0.015)
     points = mesh.position
     diameter = model_diameter(points)
     # ADDS / MDDS
@@ -230,12 +255,14 @@ function bop19_recalls(gl_context::OffscreenContext, camera::SceneObject{<:Abstr
     mdds_err = mdds_error(points, es_affine, gt_affine)
     adds, mdds = distance_recall_bop19.(diameter, (adds_err, mdds_err))
     # VDS
-    model = upload_mesh(gl_context, mesh)
+    camera = Camera(cv_camera)
+    model = upload_mesh(distance_context, mesh)
     gt_model = @set model.pose = ground_truth
     gt_scene = Scene(camera, [gt_model])
     es_model = @set model.pose = estimate
     es_scene = Scene(camera, [es_model])
-    vsd_err = [vsd_error(gl_context, es_scene, gt_scene, measurement, δ, τ) for τ in diameter * BOP19_THRESHOLDS]
+    distance_img = depth_to_distance(measured_depth, cv_camera)
+    vsd_err = [vsd_error(distance_context, es_scene, gt_scene, distance_img, δ, τ) for τ in diameter * BOP19_THRESHOLDS]
     vsd = average_recall(vsd_err, BOP19_THRESHOLDS)
     return (adds, mdds, vsd)
 end
