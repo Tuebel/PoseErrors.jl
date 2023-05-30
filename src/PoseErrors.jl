@@ -209,15 +209,15 @@ function draw_distance(distance_context::OffscreenContext, estimate::Scene, grou
 end
 
 """
-    depth_to_distance(I::CartesianIndex, z, f_x, f_y, c_x, c_y)
+    depth_to_distance(I::CartesianIndex, z, f_x, f_y, c_x, c_y, s)
 Given the pixel position as cartesian index I and the corresponding depth value, the distance is calculated by reprojecting the pixel to 3D via the OpenCV camera parameters.
 """
-function depth_to_distance(I::CartesianIndex, z, f_x, f_y, c_x, c_y)
+function depth_to_distance(I::CartesianIndex, z, f_x, f_y, c_x, c_y, s)
     # OpenCV starts uses 0 based indexing
     u, v = Tuple(I) .- 1
     # Inverse of projection from https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html
-    x = (u - c_x) * z / f_x
     y = (v - c_y) * z / f_y
+    x = ((u - c_x) * z - s * y) / f_x
     LinearAlgebra.norm((x, y, z))
 end
 
@@ -226,7 +226,7 @@ end
 Calculates the distance image from the depth image using the OpenCv camera parameters for reprojecting the pixel to 3D.
 """
 depth_to_distance(depth_img, cv_camera::CvCamera) =
-    depth_to_distance.(CartesianIndices(depth_img), depth_img, cv_camera.f_x, cv_camera.f_y, cv_camera.c_x, cv_camera.c_y)
+    depth_to_distance.(CartesianIndices(depth_img), depth_img, cv_camera.f_x, cv_camera.f_y, cv_camera.c_x, cv_camera.c_y, cv_camera.s)
 
 # Performance Scores
 
