@@ -8,6 +8,7 @@ export vsd_error
 export depth_to_distance
 export model_diameter
 export surface_discrepancy
+export visibility_es, visibility_gt
 
 export bop19_recalls
 export discrepancy_recall_bop18
@@ -126,22 +127,40 @@ Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and lat
 The BOP18 should only be used for parameter tuning and not evaluating the final scores.
 """
 function vsd_error(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measured_dist::AbstractArray, δ=0.015, τ=0.02)
-    es_img, gt_img = draw_distance(distance_context, estimate, ground_truth)
-    visible_es, visible_gt = pixel_visible.(es_img, measured_dist, δ), pixel_visible.(gt_img, measured_dist, δ)
-    surface_discrepancy(visible_es, visible_gt, τ)
+    es_dist, gt_dist = draw_distance(distance_context, estimate, ground_truth)
+    gt_visible = visibility_gt(gt_dist, measured_dist, δ)
+    es_visible = visibility_es(es_dist, measured_dist, δ, gt_visible)
+    es_masked, gt_masked = gt_visible .* gt_dist, es_visible .* es_dist
+    surface_discrepancy(es_masked, gt_masked, τ)
 end
 
 """
-    pixel_visible(rendered_dist, measured_dist, δ)
-If the rendered pixel is in front of the measurement with a tolerance distance of δ, the render's distance is returned.
-Otherwise, zero is returned.
+    visibility_gt(rendered_dist, measured_dist, δ)
+If `rendered_dist` is in front of `measured_dist` with a tolerance distance of `δ`, the pixel is considered visible.
+If `measured_dist` is invalid, the pixel is also considered visible.
+However, for both cases `rendered_dist` must be valid, i.e. greater than 0.
 """
-function pixel_visible(rendered_dist, measured_dist, δ)
-    # BOP19 convention: No depth value is considered visible
-    if measured_dist <= 0
-        return rendered_dist
-    end
-    rendered_dist <= measured_dist + δ ? rendered_dist : zero(rendered_dist)
+function visibility_gt(rendered_dist, measured_dist, δ)
+    # the two cases to be considered visible
+    surface_visible = @. rendered_dist <= (measured_dist + δ)
+    no_depth = measured_dist .<= 0
+    # pixel must be part of the valid rendered distances
+    @. (rendered_dist > 0) & (no_depth | surface_visible)
+end
+
+"""
+    visibility_mask_es(rendered_dist, measured_dist, δ, gt_visible)
+If `rendered_dist` is in front of `measured_dist` with a tolerance distance of `δ`, the pixel is considered visible.
+If `measured_dist` is invalid, the pixel is also considered visible.
+Also, the pixels of the ground truth visibility mask `gt_visible` are considered visible.
+However, for both all previous cases `rendered_dist` must be valid, i.e. greater than 0.
+"""
+function visibility_es(rendered_dist, measured_dist, δ, gt_visible)
+    # the two cases to be considered visible
+    surface_visible = @. rendered_dist <= (measured_dist + δ)
+    no_depth = measured_dist .<= 0
+    # pixel must be part of the valid rendered distances
+    @. (rendered_dist > 0) & (no_depth | surface_visible | gt_visible)
 end
 
 """

@@ -110,14 +110,26 @@ end
 
 # Pixel visibility
 δ = 0.015
-gt_mask = PoseErrors.pixel_visible.(gt_dist, ms_dist, δ)
-es_mask = PoseErrors.pixel_visible.(es_dist, ms_dist, δ)
+gt_visible = visibility_gt(gt_dist, ms_dist, δ)
+es_visible = visibility_es(es_dist, ms_dist, δ, gt_visible)
+
+@testset "Visibility Mask" begin
+    # Sanity checks only parts should be visible
+    @test sum(gt_visible) < sum(gt_dist .> 0)
+    @test sum(es_visible) < sum(es_dist .> 0)
+    # Pour the equation from the paper into a function without thinking what it means
+    function visibility_es_naive(rendered_dist, measured_dist, δ, gt_visible)
+        es_visible = visibility_gt(rendered_dist, measured_dist, δ)
+        @. es_visible | (gt_visible & (rendered_dist > 0))
+    end
+    @test es_visible == visibility_es_naive(es_dist, ms_dist, δ, gt_visible)
+end
 
 @testset "Surface visibility" begin
-    @test maximum(gt_mask) > 0
-    @test maximum(es_mask) > 0
-    @test gt_mask != es_mask
-    @test sum(gt_dist .> 0) > sum(gt_mask .> 0)
+    @test maximum(gt_visible) > 0
+    @test maximum(es_visible) > 0
+    @test gt_visible != es_visible
+    @test sum(gt_dist .> 0) > sum(gt_visible .> 0)
 end
 
 τ = 0.02
