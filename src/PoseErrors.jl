@@ -10,7 +10,7 @@ export model_diameter
 export surface_discrepancy
 export visibility_es, visibility_gt
 
-export bop19_recalls
+export bop19_recalls, bop19_recalls_itodd
 export discrepancy_recall_bop18
 export discrepancy_recall_bop19
 export distance_recall_bop18
@@ -260,12 +260,12 @@ average_recall(errors, thresholds) = mean([e < θ for e in errors, θ in thresho
 const BOP19_THRESHOLDS = 0.05:0.05:0.5
 
 """
-    bop19_recalls(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth; [δ=0.015])
+    bop19_recalls(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth, [δ=0.015])
 Conveniently evaluate the average recalls for ADD-S, MDD-S and VSD using the BOP19 thresholds.
 Returns tuple of recalls `(adds, mdds, vsd)`.
-δ is used as tolerance for the visibility masks, ITODD uses δ=0.005.
+δ is used as tolerance for the visibility masks, ITODD uses δ=0.005 see bop19_recalls_itodd.
 """
-function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose; δ=0.015)
+function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose, δ=0.015)
     points = mesh.position
     diameter = model_diameter(points)
     # ADDS / MDDS
@@ -285,6 +285,14 @@ function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, 
     vsd = average_recall(vsd_err, BOP19_THRESHOLDS)
     return (adds, mdds, vsd)
 end
+
+"""
+    bop19_recalls_itodd(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth)
+Conveniently evaluate the average recalls for ADD-S, MDD-S and VSD using the BOP19 thresholds.
+Returns tuple of recalls `(adds, mdds, vsd)`.
+ITODD uses δ=0.005 for the visibility tolerance.
+"""
+bop19_recalls_itodd(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose) = bop19_recalls(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth, 0.005)
 
 """
     distance_recall_bop18(diameter, errors)
