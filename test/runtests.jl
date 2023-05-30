@@ -71,7 +71,7 @@ cube_points = cube_mesh.position
 # Ground truth
 pose_gt = Pose(Translation(0, 0, 1.3), RotY(0.55))
 # Estimated
-pose_es = Pose(Translation(0, 0.02, 1.3), RotYX(0.505, 0.05))
+pose_es = Pose(Translation(0, 0.02, 1.31), RotYX(0.505, 0.05))
 
 # Measured scene - typically a depth image not a distance map
 depth_context = depth_offscreen_context(WIDTH, HEIGHT, DEPTH, Array)
@@ -112,11 +112,15 @@ end
 δ = 0.015
 gt_visible = visibility_gt(gt_dist, ms_dist, δ)
 es_visible = visibility_es(es_dist, ms_dist, δ, gt_visible)
+# much of it is occluded and not visible
+es_visible_gt = visibility_gt(es_dist, ms_dist, δ)
 
 @testset "Visibility Mask" begin
     # Sanity checks only parts should be visible
     @test sum(gt_visible) < sum(gt_dist .> 0)
     @test sum(es_visible) < sum(es_dist .> 0)
+    # The parts of the gt visibility mask should have been added
+    @test sum(es_visible) > sum(es_visible_gt)
     # Pour the equation from the paper into a function without thinking what it means
     function visibility_es_naive(rendered_dist, measured_dist, δ, gt_visible)
         es_visible = visibility_gt(rendered_dist, measured_dist, δ)
