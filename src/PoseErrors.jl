@@ -263,7 +263,7 @@ const BOP19_THRESHOLDS = 0.05:0.05:0.5
     bop19_recalls(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth; [δ=0.015])
 Conveniently evaluate the average recalls for ADD-S, MDD-S and VSD using the BOP19 thresholds.
 Returns tuple of recalls `(adds, mdds, vsd)`.
-δ is used as tolerance for the visibility masks.
+δ is used as tolerance for the visibility masks, ITODD uses δ=0.005.
 """
 function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose; δ=0.015)
     points = mesh.position
