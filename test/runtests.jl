@@ -59,8 +59,7 @@ end
 end
 
 # Surface discrepancy
-WIDTH, HEIGHT, DEPTH = 640, 480, 1
-
+WIDTH, HEIGHT, DEPTH = 640, 480, 2
 cv_camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 2)
 camera = cv_camera |> Camera
 cube_path = joinpath(dirname(pathof(SciGL)), "..", "examples", "meshes", "cube.obj")
@@ -109,7 +108,7 @@ ms_dist = depth_to_distance(ms_depth, cv_camera)
 end
 
 # Pixel visibility
-δ = 0.015
+δ = ITODD_δ
 gt_visible = visibility_gt(gt_dist, ms_dist, δ)
 es_visible = visibility_es(es_dist, ms_dist, δ, gt_visible)
 # much of it is occluded and not visible
@@ -167,7 +166,7 @@ end
     recall = @inferred discrepancy_recall_bop18(vsd)
     @test recall == (vsd < 0.3)
 
-    vsd = [vsd_error(distance_context, es_scene, gt_scene, ms_dist, 0.015, τ) for τ in model_diameter(cube_points) * bop_range]
+    vsd = [vsd_error(distance_context, es_scene, gt_scene, ms_dist, ITODD_δ, τ) for τ in model_diameter(cube_points) * bop_range]
     recall = @inferred discrepancy_recall_bop19(vsd)
     @test recall == mean([e < θ for e in vsd, θ in bop_range])
 
@@ -175,10 +174,14 @@ end
     adds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), adds)
     mdds = @inferred mdds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
     mdds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdds)
-    vsd = [vsd_error(distance_context, es_scene, gt_scene, ms_dist, 0.015, τ) for τ in model_diameter(cube_points) * bop_range]
-    vsd_recall = @inferred discrepancy_recall_bop19(vsd)
 
-    adds_r, mdds_r, vsd_r = bop19_recalls(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt)
+    #Does vectorized version result in same VSD error?
+    vsd = [vsd_error(distance_context, es_scene, gt_scene, ms_dist, ITODD_δ, τ) for τ in model_diameter(cube_points) * bop_range]
+    vsd_p = vsd_error(distance_context, es_scene, gt_scene, ms_dist, ITODD_δ, Array(model_diameter(cube_points) * bop_range))
+    @test vsd == vsd_p
+
+    vsd_recall = @inferred discrepancy_recall_bop19(vsd)
+    adds_r, mdds_r, vsd_r = bop19_recalls(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ)
     @test adds_recall == adds_r
     @test mdds_recall == mdds_r
     @test vsd_recall == vsd_r
