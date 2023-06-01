@@ -273,7 +273,7 @@ function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, 
     adds_err = adds_error(points, es_affine, gt_affine)
     mdds_err = mdds_error(points, es_affine, gt_affine)
     adds, mdds = distance_recall_bop19.(diameter, (adds_err, mdds_err))
-    # VDS
+    # VSD
     camera = Camera(cv_camera)
     model = upload_mesh(distance_context, mesh)
     gt_model = @set model.pose = ground_truth
