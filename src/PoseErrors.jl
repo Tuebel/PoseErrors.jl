@@ -32,6 +32,7 @@ using Statistics
 
 # For projection based methods
 using Accessors
+using CUDA
 using SciGL
 
 # Point Distance Metrics
@@ -311,10 +312,8 @@ function bop19_vsd_recall(distance_context::OffscreenContext, cv_camera::CvCamer
 end
 
 # Move from device "from" to device "to"
-function same_device(to::AbstractArray, from::AbstractArray{T}) where {T}
-    A = similar(to, T, size(from))
-    copyto!(A, from)
-end
+same_device(to::CuArray, from::AbstractArray) = CuArray(from)
+same_device(to::Array, from::AbstractArray) = Array(from)
 
 """
     distance_recall_bop18(diameter, errors)
