@@ -10,7 +10,8 @@ export model_diameter
 export surface_discrepancy
 export visibility_es, visibility_gt
 
-export bop19_recalls, bop19_recalls_itodd
+export BOP19_THRESHOLDS, BOP_δ, ITODD_δ
+export bop19_recalls, bop19_vsd_recall
 export discrepancy_recall_bop18
 export discrepancy_recall_bop19
 export distance_recall_bop18
@@ -126,7 +127,7 @@ Note that the `distance_context` and `measured_dist` must be / produce a distanc
 Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and later use a range of `τ=0.04:0.05:0.5`.
 The BOP18 should only be used for parameter tuning and not evaluating the final scores.
 """
-function vsd_error(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measured_dist::AbstractArray, δ=0.015, τ=0.02)
+function vsd_error(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measured_dist::AbstractArray, δ=BOP_δ, τ=0.02)
     es_dist, gt_dist = draw_distance(distance_context, estimate, ground_truth)
     gt_visible = visibility_gt(gt_dist, measured_dist, δ)
     es_visible = visibility_es(es_dist, measured_dist, δ, gt_visible)
@@ -140,13 +141,7 @@ If `rendered_dist` is in front of `measured_dist` with a tolerance distance of `
 If `measured_dist` is invalid, the pixel is also considered visible.
 However, for both cases `rendered_dist` must be valid, i.e. greater than 0.
 """
-function visibility_gt(rendered_dist, measured_dist, δ)
-    # the two cases to be considered visible
-    surface_visible = @. rendered_dist <= (measured_dist + δ)
-    no_depth = measured_dist .<= 0
-    # pixel must be part of the valid rendered distances
-    @. (rendered_dist > 0) & (no_depth | surface_visible)
-end
+visibility_gt(rendered_dist, measured_dist, δ) = @. pixel_valid(rendered_dist) & (no_depth(measured_dist) | surface_visible(rendered_dist, measured_dist, δ))
 
 """
     visibility_mask_es(rendered_dist, measured_dist, δ, gt_visible)
@@ -155,13 +150,13 @@ If `measured_dist` is invalid, the pixel is also considered visible.
 Also, the pixels of the ground truth visibility mask `gt_visible` are considered visible.
 However, for both all previous cases `rendered_dist` must be valid, i.e. greater than 0.
 """
-function visibility_es(rendered_dist, measured_dist, δ, gt_visible)
-    # the two cases to be considered visible
-    surface_visible = @. rendered_dist <= (measured_dist + δ)
-    no_depth = measured_dist .<= 0
-    # pixel must be part of the valid rendered distances
-    @. (rendered_dist > 0) & (no_depth | surface_visible | gt_visible)
-end
+visibility_es(rendered_dist, measured_dist, δ, gt_visible) = @. pixel_valid(rendered_dist) & (no_depth(measured_dist) | surface_visible(rendered_dist, measured_dist, δ) | gt_visible)
+
+# For broadcasting - large kernel is more efficient than many small
+# Also improved reusability in visibility_gt & visibility_es
+surface_visible(rendered_dist, measured_dist, δ) = rendered_dist <= (measured_dist + δ)
+no_depth(measured_dist) = measured_dist <= 0
+pixel_valid(rendered_dist) = rendered_dist > 0
 
 """
     surface_discrepancy(distance_context, estimate, ground_truth, τ)
@@ -176,7 +171,7 @@ end
 """
     surface_discrepancy(estimate, ground_truth, τ)
 Calculate the surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) for two rendered distance images.
-τ is the misalignment tolerance.
+τ is the misalignment tolerance and can be given as a vector to improve performance.
 For the calculation of the VSD, the images must have been masked.
 """
 function surface_discrepancy(estimate::AbstractArray{T}, ground_truth::AbstractArray{U}, τ::V) where {T,U,V}
@@ -188,6 +183,18 @@ function surface_discrepancy(estimate::AbstractArray{T}, ground_truth::AbstractA
     costs = discrepancy_cost.(estimate, ground_truth, τ)
     # Average of the costs for the union pixels
     sum(costs) / union_count
+end
+
+function surface_discrepancy(estimate::AbstractArray{T}, ground_truth::AbstractArray{U}, τ::AbstractVector{V}) where {T,U,V}
+    union_count = sum(@. estimate > 0 || ground_truth > 0)
+    # early stopping and no division by zero
+    if iszero(union_count)
+        return ones(promote(T, U, V), length(τ))
+    end
+    τ = reshape(τ, 1, 1, length(τ))
+    costs = discrepancy_cost.(estimate, ground_truth, τ)
+    # Average of the costs for the union pixels
+    dropdims(sum(costs, dims=(1, 2)); dims=(1, 2)) / union_count
 end
 
 """
@@ -258,14 +265,16 @@ average_recall(errors, thresholds) = mean([e < θ for e in errors, θ in thresho
 
 # BOP evaluation
 const BOP19_THRESHOLDS = 0.05:0.05:0.5
+const BOP_δ = 0.015
+const ITODD_δ = 0.005
 
 """
     bop19_recalls(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth, [δ=0.015])
 Conveniently evaluate the average recalls for ADD-S, MDD-S and VSD using the BOP19 thresholds.
 Returns tuple of recalls `(adds, mdds, vsd)`.
-δ is used as tolerance for the visibility masks, ITODD uses δ=0.005 see bop19_recalls_itodd.
+δ is used as tolerance for the visibility masks, ITODD uses δ=ITODD_δ=0.005.
 """
-function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose, δ=0.015)
+function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose, δ=BOP_δ)
     points = mesh.position
     diameter = model_diameter(points)
     # ADDS / MDDS
@@ -274,6 +283,17 @@ function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, 
     mdds_err = mdds_error(points, es_affine, gt_affine)
     adds, mdds = distance_recall_bop19.(diameter, (adds_err, mdds_err))
     # VSD
+    vsd = bop19_vsd_recall(distance_context, cv_camera, mesh, diameter, measured_depth, estimate, ground_truth, δ)
+    return (adds, mdds, vsd)
+end
+
+"""
+    vsd_bop19_recall(distance_context, cv_camera, mesh, diameter, measured_depth, estimate, ground_truth, [δ=0.015])
+Conveniently evaluate the average recall for VSD using the BOP19 thresholds.
+Provide a pre-calculated diameter since this would be the bottleneck of an otherwise parallelized implementation.
+δ is used as tolerance for the visibility masks, ITODD uses δ=ITODD_δ=0.005.
+"""
+function bop19_vsd_recall(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, diameter, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose, δ=BOP_δ)
     camera = Camera(cv_camera)
     model = upload_mesh(distance_context, mesh)
     gt_model = @set model.pose = ground_truth
@@ -281,18 +301,20 @@ function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, 
     es_model = @set model.pose = estimate
     es_scene = Scene(camera, [es_model])
     distance_img = depth_to_distance(measured_depth, cv_camera)
-    vsd_err = [vsd_error(distance_context, es_scene, gt_scene, distance_img, δ, τ) for τ in diameter * BOP19_THRESHOLDS]
-    vsd = average_recall(vsd_err, BOP19_THRESHOLDS)
-    return (adds, mdds, vsd)
+    # Transfer all arrays to the device of the distance_context
+    distance_img = same_device(distance_context.render_data, distance_img)
+    τ = same_device(distance_img, diameter * BOP19_THRESHOLDS)
+    # Use vectorized version of τ
+    vsd_err = vsd_error(distance_context, es_scene, gt_scene, distance_img, δ, τ)
+    # Run on CPU
+    discrepancy_recall_bop19(Array(vsd_err))
 end
 
-"""
-    bop19_recalls_itodd(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth)
-Conveniently evaluate the average recalls for ADD-S, MDD-S and VSD using the BOP19 thresholds.
-Returns tuple of recalls `(adds, mdds, vsd)`.
-ITODD uses δ=0.005 for the visibility tolerance.
-"""
-bop19_recalls_itodd(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose) = bop19_recalls(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth, 0.005)
+# Move from device "from" to device "to"
+function same_device(to::AbstractArray, from::AbstractArray{T}) where {T}
+    A = similar(to, T, size(from))
+    copyto!(A, from)
+end
 
 """
     distance_recall_bop18(diameter, errors)
