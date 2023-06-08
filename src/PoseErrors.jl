@@ -120,21 +120,37 @@ convert_points(points::Mesh) = convert_points(points.position)
 # Projection / Rendering Based Metrics
 
 """
-    vsd_error(distance_context, estimate, ground_truth, measured_depth, [δ=0.015, τ=0.02])
+    vsd_error(distance_context, cv_camera, mesh, measured_dist, es_poses, gt_pose, [δ=0.015, τ=0.02])
 Calculate the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
 Note that the `distance_context` and `measured_dist` must be / produce a distance map not a depth image.
 δ is used as tolerance for the visibility masks and τ is the misalignment tolerance.
+Multiple estimated poses `es_poses` as well as a range of `τ` might be provided which results in a (n_poses, n_taus) sized matrix. 
 
-Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and later use a range of `τ=0.04:0.05:0.5`.
+Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and later use a range of `τ=0.05:0.05:0.5` of the object diameter.
 The BOP18 should only be used for parameter tuning and not evaluating the final scores.
 """
-function vsd_error(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene, measured_dist::AbstractArray, δ=BOP_δ, τ=0.02)
-    es_dist, gt_dist = draw_distance(distance_context, estimate, ground_truth)
-    gt_visible = visibility_gt(gt_dist, measured_dist, δ)
-    es_visible = visibility_es(es_dist, measured_dist, δ, gt_visible)
-    es_masked, gt_masked = gt_visible .* gt_dist, es_visible .* es_dist
+function vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose, δ=BOP_δ, τ=BOP_18_τ)
+    camera = Camera(cv_camera)
+    model = upload_mesh(distance_context, mesh)
+
+    gt_scene = scene(camera, model, gt_pose)
+    gt_dist = draw(distance_context, gt_scene) |> copy
+    gt_visible = visibility_gt.(gt_dist, measured_dist, δ)
+    gt_masked = gt_visible .* gt_dist
+
+    es_scenes = scene(camera, model, es_poses)
+    es_dist = draw(distance_context, es_scenes)
+    es_masked = @. visibility_es(es_dist, measured_dist, δ, gt_visible) * es_dist
+
     surface_discrepancy(es_masked, gt_masked, τ)
 end
+
+"""
+    scene(camera, model, poses)
+Create a single scene or a vector of scenes for the given poses.
+"""
+scene(camera, model, pose::Pose) = Scene(camera, [@set model.pose = pose])
+scene(camera, model, poses::AbstractVector{<:Pose}) = [scene(camera, model, pose) for pose in poses]
 
 """
     visibility_gt(rendered_dist, measured_dist, δ)
@@ -142,7 +158,7 @@ If `rendered_dist` is in front of `measured_dist` with a tolerance distance of `
 If `measured_dist` is invalid, the pixel is also considered visible.
 However, for both cases `rendered_dist` must be valid, i.e. greater than 0.
 """
-visibility_gt(rendered_dist, measured_dist, δ) = @. pixel_valid(rendered_dist) & (no_depth(measured_dist) | surface_visible(rendered_dist, measured_dist, δ))
+visibility_gt(rendered_dist, measured_dist, δ) = pixel_valid(rendered_dist) & (no_depth(measured_dist) | surface_visible(rendered_dist, measured_dist, δ))
 
 """
     visibility_mask_es(rendered_dist, measured_dist, δ, gt_visible)
@@ -151,7 +167,7 @@ If `measured_dist` is invalid, the pixel is also considered visible.
 Also, the pixels of the ground truth visibility mask `gt_visible` are considered visible.
 However, for both all previous cases `rendered_dist` must be valid, i.e. greater than 0.
 """
-visibility_es(rendered_dist, measured_dist, δ, gt_visible) = @. pixel_valid(rendered_dist) & (no_depth(measured_dist) | surface_visible(rendered_dist, measured_dist, δ) | gt_visible)
+visibility_es(rendered_dist, measured_dist, δ, gt_visible) = pixel_valid(rendered_dist) & (no_depth(measured_dist) | surface_visible(rendered_dist, measured_dist, δ) | gt_visible)
 
 # For broadcasting - large kernel is more efficient than many small
 # Also improved reusability in visibility_gt & visibility_es
@@ -160,43 +176,29 @@ no_depth(measured_dist) = measured_dist <= 0
 pixel_valid(rendered_dist) = rendered_dist > 0
 
 """
-    surface_discrepancy(distance_context, estimate, ground_truth, τ)
-Calculate the surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) by rendering two scenes.
-τ is the misalignment tolerance, for the VSD, the images must have been masked.
-"""
-function surface_discrepancy(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene, τ)
-    es_img, gt_img = draw_distance(distance_context, estimate, ground_truth)
-    surface_discrepancy(es_img, gt_img, τ)
-end
-
-"""
-    surface_discrepancy(estimate, ground_truth, τ)
+    surface_discrepancy(es_dist, gt_dist, τ)
 Calculate the surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) for two rendered distance images.
 τ is the misalignment tolerance and can be given as a vector to improve performance.
 For the calculation of the VSD, the images must have been masked.
 """
-function surface_discrepancy(estimate::AbstractArray{T}, ground_truth::AbstractArray{U}, τ::V) where {T,U,V}
-    union_count = sum(@. estimate > 0 || ground_truth > 0)
-    # early stopping and no division by zero
-    if iszero(union_count)
-        return one(promote(T, U, V))
-    end
-    costs = discrepancy_cost.(estimate, ground_truth, τ)
-    # Average of the costs for the union pixels
-    sum(costs) / union_count
+function surface_discrepancy(es_dist::AbstractArray, gt_dist::AbstractArray, τ::Real)
+    # VSD is a modification of the CoU metric with additional costs for large distances 
+    union = dropsum(@. es_dist > 0 || gt_dist > 0; dims=(1, 2))
+    complement = dropsum(discrepancy_cost.(es_dist, gt_dist, τ); dims=(1, 2))
+    complement_over_union = complement ./ union
+    # union == 0 → no pixel rendered → pose out of view → definitely wrong  → return limit
+    inf_to_one.(complement_over_union)
 end
 
-function surface_discrepancy(estimate::AbstractArray{T}, ground_truth::AbstractArray{U}, τ::AbstractVector{V}) where {T,U,V}
-    union_count = sum(@. estimate > 0 || ground_truth > 0)
-    # early stopping and no division by zero
-    if iszero(union_count)
-        return ones(promote(T, U, V), length(τ))
-    end
-    τ = reshape(τ, 1, 1, length(τ))
-    costs = discrepancy_cost.(estimate, ground_truth, τ)
-    # Average of the costs for the union pixels
-    dropdims(sum(costs, dims=(1, 2)); dims=(1, 2)) / union_count
-end
+surface_discrepancy(estimate::AbstractArray, ground_truth::AbstractArray, τ::AbstractVector{<:Real}) = reduce(hcat, [surface_discrepancy(estimate, ground_truth, x) for x in τ])
+
+dropsum(x; dims) = dropdims(sum(x; dims=dims); dims=dims)
+
+"""
+    inf_to_one(x)
+If x is infinity the one is returned, x otherwise
+"""
+inf_to_one(x) = isinf(x) ? one(x) : x
 
 """
     discrepancy_cost(dist_a, dist_b, τ)
@@ -209,30 +211,12 @@ function discrepancy_cost(dist_a, dist_b, τ)
         # Do not add any cost if not part of union
         return false
     elseif a_valid ⊻ b_valid
-        # Not part of intersection -> always cost
+        # Part of the complement → always cost
         return true
     else
-        # Part of intersection. Cost if misalignment tolerance is violated
+        # Part of intersection → cost if misalignment tolerance is violated
         return abs(dist_b - dist_a) > τ
     end
-end
-
-"""
-    draw_distance(distance_context, estimate, ground_truth)
-Returns a tuple of the depth images for the estimate and ground truth.
-"""
-function draw_distance(distance_context::OffscreenContext, estimate::Scene, ground_truth::Scene)
-    # Check whether drawing multiple scenes into a layered texture is supported
-    if last(size(distance_context)) > 1
-        imgs = draw(distance_context, [estimate, ground_truth])
-        es_img = @view(imgs[:, :, 1])
-        gt_img = @view(imgs[:, :, 2])
-    else
-        # Buffer is overwritten → copy it
-        es_img = copy(draw(distance_context, estimate))
-        gt_img = draw(distance_context, ground_truth)
-    end
-    es_img, gt_img
 end
 
 """
@@ -268,6 +252,8 @@ average_recall(errors, thresholds) = mean([e < θ for e in errors, θ in thresho
 const BOP19_THRESHOLDS = 0.05:0.05:0.5
 const BOP_δ = 0.015
 const ITODD_δ = 0.005
+const BOP_18_τ = 0.02
+const BOP_18_θ = 0.3
 
 """
     bop19_recalls(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth, [δ=0.015])
@@ -288,25 +274,18 @@ function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, 
     return (adds, mdds, vsd)
 end
 
+# TODO Implement for multiple poses? Typically only one pose per gt in recall calculation. I think only the vsd error should be parallelized
 """
-    vsd_bop19_recall(distance_context, cv_camera, mesh, diameter, measured_depth, estimate, ground_truth, [δ=0.015])
+    vsd_bop19_recall(distance_context, cv_camera, mesh, diameter, measured_depth, es_pose, gt_pose, [δ=0.015])
 Conveniently evaluate the average recall for VSD using the BOP19 thresholds.
 Provide a pre-calculated diameter since this would be the bottleneck of an otherwise parallelized implementation.
 δ is used as tolerance for the visibility masks, ITODD uses δ=ITODD_δ=0.005.
 """
-function bop19_vsd_recall(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, diameter, measured_depth::AbstractMatrix, estimate::Pose, ground_truth::Pose, δ=BOP_δ)
-    camera = Camera(cv_camera)
-    model = upload_mesh(distance_context, mesh)
-    gt_model = @set model.pose = ground_truth
-    gt_scene = Scene(camera, [gt_model])
-    es_model = @set model.pose = estimate
-    es_scene = Scene(camera, [es_model])
-    distance_img = depth_to_distance(measured_depth, cv_camera)
-    # Transfer all arrays to the device of the distance_context
-    distance_img = same_device(distance_context.render_data, distance_img)
-    τ = same_device(distance_img, diameter * BOP19_THRESHOLDS)
-    # Use vectorized version of τ
-    vsd_err = vsd_error(distance_context, es_scene, gt_scene, distance_img, δ, τ)
+function bop19_vsd_recall(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, diameter, measured_depth::AbstractMatrix, es_pose::Pose, gt_pose::Pose, δ=BOP_δ)
+    measured_dist = depth_to_distance(measured_depth, cv_camera)
+    measured_dist = same_device(distance_context.render_data, measured_dist)
+    τ = same_device(measured_dist, diameter * BOP19_THRESHOLDS)
+    vsd_err = vsd_error(distance_context, cv_camera, mesh, measured_dist, es_pose, gt_pose, δ, τ)
     # Run on CPU
     discrepancy_recall_bop19(Array(vsd_err))
 end
@@ -335,6 +314,7 @@ For discrepancy based methods like (V)SD.
 According to BOP18, a pose is considered correct if `error < threshold` where `threshold ∈ 0.05:0.05:0.5`.
 """
 discrepancy_recall_bop18(discrepancies) = average_recall(discrepancies, 0.3)
+
 """
     discrepancy_recall_bop19(errors)
 For discrepancy based methods like (V)SD.

@@ -109,10 +109,10 @@ end
 
 # Pixel visibility
 δ = ITODD_δ
-gt_visible = visibility_gt(gt_dist, ms_dist, δ)
-es_visible = visibility_es(es_dist, ms_dist, δ, gt_visible)
+gt_visible = visibility_gt.(gt_dist, ms_dist, δ)
+es_visible = visibility_es.(es_dist, ms_dist, δ, gt_visible)
 # much of it is occluded and not visible
-es_visible_gt = visibility_gt(es_dist, ms_dist, δ)
+es_visible_gt = visibility_gt.(es_dist, ms_dist, δ)
 
 @testset "Visibility Mask" begin
     # Sanity checks only parts should be visible
@@ -122,7 +122,7 @@ es_visible_gt = visibility_gt(es_dist, ms_dist, δ)
     @test sum(es_visible) > sum(es_visible_gt)
     # Pour the equation from the paper into a function without thinking what it means
     function visibility_es_naive(rendered_dist, measured_dist, δ, gt_visible)
-        es_visible = visibility_gt(rendered_dist, measured_dist, δ)
+        es_visible = visibility_gt.(rendered_dist, measured_dist, δ)
         @. es_visible | (gt_visible & (rendered_dist > 0))
     end
     @test es_visible == visibility_es_naive(es_dist, ms_dist, δ, gt_visible)
@@ -137,16 +137,15 @@ end
 
 τ = 0.02
 @testset "Surface Discrepancy" begin
-    sd = @inferred surface_discrepancy(distance_context, es_scene, gt_scene, τ)
+    sd = @inferred surface_discrepancy(es_dist, gt_dist, τ)
     @test 0 < sd < 1
-    @test sd == surface_discrepancy(es_dist, gt_dist, τ)
-    @test sd < surface_discrepancy(distance_context, es_scene, gt_scene, τ * 0.1)
+    @test sd < surface_discrepancy(es_dist, gt_dist, τ * 0.1)
 end
 
 @testset "Visible Surface Discrepancy" begin
-    vsd = @inferred vsd_error(distance_context, es_scene, gt_scene, ms_dist, δ, τ)
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, δ, τ)
     @test 0 < vsd < 1
-    @test vsd != surface_discrepancy(distance_context, es_scene, gt_scene, τ)
+    @test vsd != surface_discrepancy(es_dist, gt_dist, τ)
 end
 
 @testset "Performance scores / average recall" begin
@@ -162,11 +161,11 @@ end
     @test 0 <= recall <= 1
 
     # Visual Surface Discrepancy
-    vsd = @inferred vsd_error(distance_context, es_scene, gt_scene, ms_dist)
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt)
     recall = @inferred discrepancy_recall_bop18(vsd)
     @test recall == (vsd < 0.3)
 
-    vsd = [vsd_error(distance_context, es_scene, gt_scene, ms_dist, ITODD_δ, τ) for τ in model_diameter(cube_points) * bop_range]
+    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, τ) for τ in model_diameter(cube_points) * bop_range]
     recall = @inferred discrepancy_recall_bop19(vsd)
     @test recall == mean([e < θ for e in vsd, θ in bop_range])
 
@@ -176,9 +175,10 @@ end
     mdds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdds)
 
     #Does vectorized version result in same VSD error?
-    vsd = [vsd_error(distance_context, es_scene, gt_scene, ms_dist, ITODD_δ, τ) for τ in model_diameter(cube_points) * bop_range]
-    vsd_p = vsd_error(distance_context, es_scene, gt_scene, ms_dist, ITODD_δ, Array(model_diameter(cube_points) * bop_range))
-    @test vsd == vsd_p
+    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, τ) for τ in model_diameter(cube_points) * bop_range]
+    vsd_p = vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, Array(model_diameter(cube_points) * bop_range))
+    # TODO different shape expected?
+    @test vsd == reduce(vcat, vsd_p)
 
     vsd_recall = @inferred discrepancy_recall_bop19(vsd)
     adds_r, mdds_r, vsd_r = bop19_recalls(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ)
