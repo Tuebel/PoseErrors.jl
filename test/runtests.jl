@@ -14,6 +14,19 @@ points = rand(3, 1_000)
 pose0 = Translation(1.0, 0, 0) ∘ LinearMap(RotXYZ(0.5, 0, 0))
 pose1 = LinearMap(RotXYZ(0.1, 0, 0)) ∘ pose0
 
+# Test whether the errors strictly increase from first to last
+function error_increases(errors::AbstractVector{T}) where {T}
+    init = typemin(T)
+    for e in errors
+        if e > init
+            init = e
+        else
+            return false
+        end
+    end
+    return true
+end
+
 @testset "Nearest neighbor distances" begin
     # Sanity check of nearest_neighbor_distances: Same pose should have zero as distance, different a Euclidean distance > 0
     dists = @inferred PoseErrors.nearest_neighbor_distances(points, pose0, pose0)
@@ -59,7 +72,7 @@ end
 end
 
 # Surface discrepancy
-WIDTH, HEIGHT, DEPTH = 640, 480, 2
+WIDTH, HEIGHT, DEPTH = 640, 480, 10
 cv_camera = CvCamera(WIDTH, HEIGHT, 1.2 * WIDTH, 1.2 * HEIGHT, WIDTH / 2, HEIGHT / 2)
 camera = cv_camera |> Camera
 cube_path = joinpath(dirname(pathof(SciGL)), "..", "examples", "meshes", "cube.obj")
@@ -70,7 +83,8 @@ cube_points = cube_mesh.position
 # Ground truth
 pose_gt = Pose(Translation(0, 0, 1.3), RotY(0.55))
 # Estimated
-pose_es = Pose(Translation(0, 0.02, 1.31), RotYX(0.505, 0.05))
+poses = [Pose(Translation(0, 0.02, 1.3 + 0.02 * x), RotYX(0.5 + 0.1 * x, 0.1 * x)) for x in 1:6]
+pose_es = poses[2]
 
 # Measured scene - typically a depth image not a distance map
 depth_context = depth_offscreen_context(WIDTH, HEIGHT, DEPTH, Array)
@@ -135,7 +149,7 @@ end
     @test sum(gt_dist .> 0) > sum(gt_visible .> 0)
 end
 
-τ = 0.02
+τ = 0.05 * model_diameter(cube_mesh)
 @testset "Surface Discrepancy" begin
     sd = @inferred surface_discrepancy(es_dist, gt_dist, τ)
     @test 0 < sd < 1
@@ -143,9 +157,32 @@ end
 end
 
 @testset "Visible Surface Discrepancy" begin
+    # Single pose, single τ
     vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, δ, τ)
+    vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, δ, 0.05 * model_diameter(cube_mesh))
     @test 0 < vsd < 1
     @test vsd != surface_discrepancy(es_dist, gt_dist, τ)
+
+    # Many poses, single τ
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses, pose_gt, δ, τ)
+    @test size(vsd) == (6,)
+    @test error_increases(vsd)
+
+    # Single pose, many τ
+    taus = (reverse(BOP19_THRESHOLDS)) * model_diameter(cube_mesh)
+    # Relatively large pose error required to see any difference in the vsd error
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses[2], pose_gt, δ, taus)
+    @test size(vsd) == (10,)
+    @test error_increases(vsd)
+
+    # Many poses, many τ
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses, pose_gt, δ, taus)
+    @test size(vsd) == (10,)
+    for err in vsd
+        @test size(err) == (6,)
+    end
+    # For all τ, the error should increase. At least in this example. Different geometries might not steadily grow.
+    @test sum(error_increases.(vsd)) == 10
 end
 
 @testset "Performance scores / average recall" begin
@@ -156,8 +193,7 @@ end
     @test 0 <= recall <= 1
 
     recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdd_s)
-    bop_range = 0.05:0.05:0.5
-    @test recall == sum(mdd_s .< bop_range * model_diameter(cube_points)) / length(bop_range)
+    @test recall == sum(mdd_s .< BOP19_THRESHOLDS * model_diameter(cube_points)) / length(BOP19_THRESHOLDS)
     @test 0 <= recall <= 1
 
     # Visual Surface Discrepancy
@@ -165,9 +201,9 @@ end
     recall = @inferred discrepancy_recall_bop18(vsd)
     @test recall == (vsd < 0.3)
 
-    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, τ) for τ in model_diameter(cube_points) * bop_range]
+    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, τ) for τ in model_diameter(cube_points) * BOP19_THRESHOLDS]
     recall = @inferred discrepancy_recall_bop19(vsd)
-    @test recall == mean([e < θ for e in vsd, θ in bop_range])
+    @test recall == mean([e < θ for e in vsd, θ in BOP19_THRESHOLDS])
 
     adds = @inferred adds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
     adds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), adds)
@@ -175,10 +211,9 @@ end
     mdds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdds)
 
     #Does vectorized version result in same VSD error?
-    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, τ) for τ in model_diameter(cube_points) * bop_range]
-    vsd_p = vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, Array(model_diameter(cube_points) * bop_range))
-    # TODO different shape expected?
-    @test vsd == reduce(vcat, vsd_p)
+    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, τ) for τ in model_diameter(cube_points) * BOP19_THRESHOLDS]
+    vsd_p = vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, Array(model_diameter(cube_points) * BOP19_THRESHOLDS))
+    @test vsd == vsd_p
 
     vsd_recall = @inferred discrepancy_recall_bop19(vsd)
     adds_r, mdds_r, vsd_r = bop19_recalls(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ)

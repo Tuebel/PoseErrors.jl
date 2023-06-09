@@ -124,7 +124,7 @@ convert_points(points::Mesh) = convert_points(points.position)
 Calculate the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
 Note that the `distance_context` and `measured_dist` must be / produce a distance map not a depth image.
 δ is used as tolerance for the visibility masks and τ is the misalignment tolerance.
-Multiple estimated poses `es_poses` as well as a range of `τ` might be provided which results in a (n_poses, n_taus) sized matrix. 
+Multiple estimated poses `es_poses` as well as a range of `τ` might be provided which results in a vector of n_taus vectors of n_poses. 
 
 Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and later use a range of `τ=0.05:0.05:0.5` of the object diameter.
 The BOP18 should only be used for parameter tuning and not evaluating the final scores.
@@ -190,8 +190,12 @@ function surface_discrepancy(es_dist::AbstractArray, gt_dist::AbstractArray, τ:
     inf_to_one.(complement_over_union)
 end
 
-surface_discrepancy(estimate::AbstractArray, ground_truth::AbstractArray, τ::AbstractVector{<:Real}) = reduce(hcat, [surface_discrepancy(estimate, ground_truth, x) for x in τ])
+surface_discrepancy(estimate::AbstractArray, ground_truth::AbstractArray, τ::AbstractVector{<:Real}) = [surface_discrepancy(estimate, ground_truth, x) for x in τ]
 
+"""
+    dropsum(x; dims)
+Combines sum and dropdims along dims.
+"""
 dropsum(x; dims) = dropdims(sum(x; dims=dims); dims=dims)
 
 """
@@ -274,15 +278,13 @@ function bop19_recalls(distance_context::OffscreenContext, cv_camera::CvCamera, 
     return (adds, mdds, vsd)
 end
 
-# TODO Implement for multiple poses? Typically only one pose per gt in recall calculation. I think only the vsd error should be parallelized
 """
-    vsd_bop19_recall(distance_context, cv_camera, mesh, diameter, measured_depth, es_pose, gt_pose, [δ=0.015])
+    vsd_bop19_recall(distance_context, cv_camera, mesh, diameter, measured_dist, es_pose, gt_pose, [δ=0.015])
 Conveniently evaluate the average recall for VSD using the BOP19 thresholds.
 Provide a pre-calculated diameter since this would be the bottleneck of an otherwise parallelized implementation.
 δ is used as tolerance for the visibility masks, ITODD uses δ=ITODD_δ=0.005.
 """
-function bop19_vsd_recall(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, diameter, measured_depth::AbstractMatrix, es_pose::Pose, gt_pose::Pose, δ=BOP_δ)
-    measured_dist = depth_to_distance(measured_depth, cv_camera)
+function bop19_vsd_recall(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, diameter, measured_dist::AbstractMatrix, es_pose::Pose, gt_pose::Pose, δ=BOP_δ)
     measured_dist = same_device(distance_context.render_data, measured_dist)
     τ = same_device(measured_dist, diameter * BOP19_THRESHOLDS)
     vsd_err = vsd_error(distance_context, cv_camera, mesh, measured_dist, es_pose, gt_pose, δ, τ)
