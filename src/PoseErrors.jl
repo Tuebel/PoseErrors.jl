@@ -17,6 +17,9 @@ export discrepancy_recall_bop19
 export distance_recall_bop18
 export distance_recall_bop19
 
+# BOP dataset evaluation
+export match_errors
+
 # Geometry
 using CoordinateTransformations
 using Distances
@@ -34,6 +37,9 @@ using Statistics
 using Accessors
 using CUDA
 using SciGL
+
+# BOP dataset evaluation
+include("BOP.jl")
 
 # Point Distance Metrics
 
@@ -124,12 +130,12 @@ convert_points(points::Mesh) = convert_points(points.position)
 Calculate the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
 Note that the `distance_context` and `measured_dist` must be / produce a distance map not a depth image.
 δ is used as tolerance for the visibility masks and τ is the misalignment tolerance.
-Multiple estimated poses `es_poses` as well as a range of `τ` might be provided which results in a vector of n_taus vectors of n_poses. 
+Multiple estimated poses `es_poses` as well as a range of `τ` might be provided which results in a vector of `n_taus` vectors of n_poses. 
 
 Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and later use a range of `τ=0.05:0.05:0.5` of the object diameter.
 The BOP18 should only be used for parameter tuning and not evaluating the final scores.
 """
-function vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose, δ=BOP_δ, τ=BOP_18_τ)
+function vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose, δ::Real=BOP_δ, τ::Real=BOP_18_τ)
     camera = Camera(cv_camera)
     model = upload_mesh(distance_context, mesh)
 
@@ -189,8 +195,6 @@ function surface_discrepancy(es_dist::AbstractArray, gt_dist::AbstractArray, τ:
     # union == 0 → no pixel rendered → pose out of view → definitely wrong  → return limit
     inf_to_one.(complement_over_union)
 end
-
-surface_discrepancy(estimate::AbstractArray, ground_truth::AbstractArray, τ::AbstractVector{<:Real}) = [surface_discrepancy(estimate, ground_truth, x) for x in τ]
 
 """
     dropsum(x; dims)
@@ -259,6 +263,12 @@ const ITODD_δ = 0.005
 const BOP_18_τ = 0.02
 const BOP_18_θ = 0.3
 
+# BUG This is not the recall but the accuracy of a single prediction. Missing the number of targets, i.e. how many poses should have been detected.
+
+# NOTE in practice this means: For each tau and theta, the estimated poses are matched to the (>= 10% visible) ground truth poses. If the match was successful, i.e. error < theta, the pose is considered correct. For each GT pose at most one estimate is matched. Also each estimated pose is matched at most once. Matching is eagerly based on the confidence score.
+
+# TODO Move BOP recalls to BOP.jl
+
 """
     bop19_recalls(distance_context, cv_camera, mesh, measured_depth, estimate, ground_truth, [δ=0.015])
 Conveniently evaluate the average recalls for ADD-S, MDD-S and VSD using the BOP19 thresholds.
@@ -288,6 +298,7 @@ function bop19_vsd_recall(distance_context::OffscreenContext, cv_camera::CvCamer
     measured_dist = same_device(distance_context.render_data, measured_dist)
     τ = same_device(measured_dist, diameter * BOP19_THRESHOLDS)
     vsd_err = vsd_error(distance_context, cv_camera, mesh, measured_dist, es_pose, gt_pose, δ, τ)
+    # TODO BOP only considers objects with at least 10% visibility
     # Run on CPU
     discrepancy_recall_bop19(Array(vsd_err))
 end
