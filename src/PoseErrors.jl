@@ -135,7 +135,7 @@ Multiple estimated poses `es_poses` as well as a range of `τ` might be provided
 Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and later use a range of `τ=0.05:0.05:0.5` of the object diameter.
 The BOP18 should only be used for parameter tuning and not evaluating the final scores.
 """
-function vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose, δ::Real=BOP_δ, τ::Real=BOP_18_τ)
+function vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose, δ=BOP_δ, τ=BOP_18_τ)
     camera = Camera(cv_camera)
     model = upload_mesh(distance_context, mesh)
 
@@ -184,7 +184,8 @@ pixel_valid(rendered_dist) = rendered_dist > 0
 """
     surface_discrepancy(es_dist, gt_dist, τ)
 Calculate the surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/) for two rendered distance images.
-τ is the misalignment tolerance and can be given as a vector to improve performance.
+τ is the misalignment tolerance.
+Supply τ as a vector to improve performance since the same renderings can be reused.
 For the calculation of the VSD, the images must have been masked.
 """
 function surface_discrepancy(es_dist::AbstractArray, gt_dist::AbstractArray, τ::Real)
@@ -195,6 +196,8 @@ function surface_discrepancy(es_dist::AbstractArray, gt_dist::AbstractArray, τ:
     # union == 0 → no pixel rendered → pose out of view → definitely wrong  → return limit
     inf_to_one.(complement_over_union)
 end
+
+surface_discrepancy(estimate::AbstractArray, ground_truth::AbstractArray, τ::AbstractVector{<:Real}) = [surface_discrepancy(estimate, ground_truth, x) for x in τ]
 
 """
     dropsum(x; dims)

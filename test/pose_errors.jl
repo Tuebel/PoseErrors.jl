@@ -167,6 +167,22 @@ end
     vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses, pose_gt, δ, τ)
     @test size(vsd) == (6,)
     @test error_increases(vsd)
+
+    # Single pose, many τ
+    taus = (reverse(BOP19_THRESHOLDS)) * model_diameter(cube_mesh)
+    # Relatively large pose error required to see any difference in the vsd error
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses[2], pose_gt, δ, taus)
+    @test size(vsd) == (10,)
+    @test error_increases(vsd)
+
+    # Many poses, many τ
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses, pose_gt, δ, taus)
+    @test size(vsd) == (10,)
+    for err in vsd
+        @test size(err) == (6,)
+    end
+    # For all τ, the error should increase. At least in this example. Different geometries might not steadily grow.
+    @test sum(error_increases.(vsd)) == 10
 end
 
 @testset "Performance scores / average recall" begin
