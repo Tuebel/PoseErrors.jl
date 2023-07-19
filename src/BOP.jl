@@ -31,8 +31,6 @@ function match_errors(scores::AbstractVector{<:Real}, errors_per_gt::AbstractVec
     matched_errors
 end
 
-# TODO finish refactor
-
 # TODO Calc errors_per_gt and save them to a file... DataFrame[:img_id, :gt_id]?
 
 """

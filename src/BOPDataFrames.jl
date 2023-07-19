@@ -14,14 +14,18 @@ using StaticArrays
 # TODO output poses in BOP evaluation format. Output sampler diagnostics in separate file.
 # TODO load this file in PoseErrors.jl (new BOP.jl file there) and save the errors in a new file. Finally calculate recall, plot error histograms, recall/threshold curve.
 
-dataset_path(dataset_name) = joinpath(pwd(), "datasets", dataset_name)
-datasubset_path(dataset_name, subset_name="test") = joinpath(dataset_path(dataset_name), subset_name)
+"""
+    bop_dataset_path(dataset_name)
+Returns the full path to the BOP dataset's root directory.
+"""
+bop_dataset_path(dataset_name) = joinpath(pwd(), "datasets", dataset_name)
+datasubset_path(dataset_name, subset_name="test") = joinpath(bop_dataset_path(dataset_name), subset_name)
 
 """
-    scene_paths(dataset_name, [subset_name="test"])
-Returns a vector of the full paths to the scene directories of the datasets subset.
+    bop_scene_paths(dataset_name, [subset_name="test"])
+Returns a vector of the full paths to the scene directories of the BOP datasets scenes.
 """
-scene_paths(dataset_name, subset_name="test") = readdir(datasubset_path(dataset_name, subset_name); join=true)
+bop_scene_paths(dataset_name, subset_name="test") = readdir(datasubset_path(dataset_name, subset_name); join=true)
 
 """
     lpad_bop(number)
@@ -124,16 +128,15 @@ end
 Loads the object specific information into a DataFrame with the columns `obj_id, diameter, mesh`.
 """
 function object_dataframe(dataset_name)
-    path = dataset_path(dataset_name)
+    path = bop_dataset_path(dataset_name)
     json = JSON.parsefile(joinpath(path, "models_eval", "models_info.json"))
-    df = DataFrame(obj_id=Int[], diameter=Float32[], mesh=Mesh[])
+    df = DataFrame(obj_id=Int[], diameter=Float32[], mesh_path=String[])
     for (obj_id, data) in json
         obj_id = parse(Int, obj_id)
         diameter = Float32(1e-3 .* data["diameter"])
         filename = "obj_" * lpad_bop(obj_id) * ".ply"
-        mesh_file = joinpath(path, "models_eval", filename)
-        mesh = Scale(Float32(1e-3))(load(mesh_file))
-        push!(df, (obj_id, diameter, mesh))
+        mesh_path = joinpath(path, "models_eval", filename)
+        push!(df, (obj_id, diameter, mesh_path))
     end
     df
 end
@@ -145,8 +148,8 @@ Loads the information of a single scene into a DataFrame by combining the image,
 function scene_dataframe(dataset_name="lm", subset_name="test", scene_number=1)
     path = scene_path(dataset_name, subset_name, scene_number)
     # Per image
-    img_df = MCMCDepth.image_dataframe(path)
-    cam_df = MCMCDepth.camera_dataframe(path, img_df)
+    img_df = image_dataframe(path)
+    cam_df = camera_dataframe(path, img_df)
     img_cam_df = innerjoin(img_df, cam_df; on=:img_id)
     # Per evaluation
     gt_df = gt_dataframe(path)
@@ -172,21 +175,36 @@ Get the cropped camera for the bounding box of the object & pose in the DataFram
 crop_camera(df_row::DataFrameRow) = crop(df_row.cv_camera, crop_boundingbox(df_row)...)
 
 """
-    load_image(path, df_row, parameters)
+    load_image(path, df_row, width, height)
 Load an image in OpenGL convention: (x,y) coordinates instead of Julia images (y,x) convention.
 """
-function load_image(path, df_row, parameters)
+function load_image(path, df_row, width, height)
     bounding_box = crop_boundingbox(df_row)
     image = path |> load |> transpose
-    crop_image(image, bounding_box..., parameters)
+    crop_image(image, bounding_box..., width, height)
 end
 
-load_depth_image(path, df_row, parameters) = (load_image(path, df_row, parameters) |> channelview |> rawview) .* Float32(1e-3 * df_row.depth_scale)
+load_depth_image(path, df_row, width, height) = (load_image(path, df_row, width, height) |> channelview |> rawview) .* Float32(1e-3 * df_row.depth_scale)
 """
     load_depth_image(df_row)
-Load the depth image as a Matrix{Float32} of size (width, height) where each pixel is the depth in meters.
+Load the depth image as a Matrix{Float32}, crop it, and resize it to (width, height) where each pixel is the depth in meters.
 """
-load_depth_image(df_row, parameters) = load_depth_image(df_row.depth_path, df_row, parameters)
+load_depth_image(df_row, width, height) = load_depth_image(df_row.depth_path, df_row, width, height)
 
-load_color_image(df_row, parameters) = load_image(df_row.color_path, df_row, parameters)
-load_mask_image(df_row, parameters) = load_image(df_row.mask_path, df_row, parameters) .|> Bool
+"""
+   load_color_image(df_row, width, height)
+Load the color image, crop it, and resize it to (width, height).
+"""
+load_color_image(df_row, width, height) = load_image(df_row.color_path, df_row, width, height)
+
+"""
+   load_mask_image(df_row, width, height)
+Load the mask image, crop it, and resize it to (width, height).
+"""
+load_mask_image(df_row, width, height) = load_image(df_row.mask_path, df_row, width, height) .|> Bool
+
+"""
+   load_mesh(df_row, width, height)
+Load the mesh file from the disk and scale it to meters.
+"""
+load_mesh(df_row) = Scale(Float32(1e-3))(load(df_row.mesh_path))

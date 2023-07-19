@@ -4,3 +4,4 @@
 
 include("bop.jl")
 include("pose_errors.jl")
+include("crop_image.jl")

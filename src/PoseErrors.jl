@@ -17,6 +17,14 @@ export discrepancy_recall_bop19
 export distance_recall_bop18
 export distance_recall_bop19
 
+# BOP dataset loading and preprocessing
+export crop_camera
+export load_color_image
+export load_depth_image
+export load_mask_image
+export load_mesh
+export scene_dataframe
+
 # BOP dataset evaluation
 export match_errors
 export recall
@@ -47,6 +55,8 @@ include("ADD.jl")
 include("VSD.jl")
 
 # BOP dataset evaluation
+include("CropImage.jl")
+include("BOPDataFrames.jl")
 include("BOP.jl")
 
 end # module PoseErrors
