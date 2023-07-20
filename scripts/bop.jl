@@ -9,12 +9,10 @@ using PoseErrors
 using SciGL
 
 # Datasets
-s_df = scene_dataframe("tless", "test_primesense", 1)
-@assert nrow(s_df) == 197
-# s_df = scene_dataframe("itodd", "val", 1)
-# s_df = scene_dataframe("lm", "test", 2)
-row = s_df[100, :]
+s_df = scene_dataframe("tless", "test_primesense", 12)
+@assert nrow(s_df) == 297
 
+row = s_df[1, :]
 WIDTH = 400
 HEIGHT = 300
 DEPTH = 1

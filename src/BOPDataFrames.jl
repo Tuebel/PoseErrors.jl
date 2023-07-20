@@ -87,7 +87,6 @@ end
 Load the ground truth information for each object and image as a DataFrame with the columns `img_id, obj_id, cam_R_m2c, cam_t_m2c, mask_path, mask_visib_path`.
 """
 function gt_dataframe(scene_path)
-    # TODO consider only valid visibilities >= 0.1 from scene_gt_info.json (or less general test_targets_bop19.json) file.
     gt_json = JSON.parsefile(joinpath(scene_path, "scene_gt.json"))
     df = DataFrame(img_id=Int[], obj_id=Int[], gt_id=Int[], cam_R_m2c=QuatRotation[], cam_t_m2c=Vector{Float32}[], mask_path=String[], mask_visib_path=String[])
     for (img_id, body) in gt_json
@@ -108,7 +107,6 @@ function gt_dataframe(scene_path)
 end
 
 function gt_info_dataframe(scene_path; visib_threshold=0.1)
-    # TODO consider only valid visibilities >= 0.1 from scene_gt_info.json (or less general test_targets_bop19.json) file.
     gt_info_json = JSON.parsefile(joinpath(scene_path, "scene_gt_info.json"))
     df = DataFrame(img_id=Int[], gt_id=Int[], visib_fract=Float32[])
     for (img_id, body) in gt_info_json
@@ -149,12 +147,13 @@ function scene_dataframe(dataset_name="lm", subset_name="test", scene_number=1)
     path = scene_path(dataset_name, subset_name, scene_number)
     # Per image
     img_df = image_dataframe(path)
+    img_df[!, :scene_id] .= scene_number
     cam_df = camera_dataframe(path, img_df)
     img_cam_df = innerjoin(img_df, cam_df; on=:img_id)
     # Per evaluation
     gt_df = gt_dataframe(path)
     info_df = gt_info_dataframe(path)
-    # info_df might contain less entries as only visib_fract >= 0.1 is considered valid
+    # only visib_fract >= 0.1 is considered valid → gt_info_df might include less entries on purpose
     gt_info_df = rightjoin(gt_df, info_df; on=[:img_id, :gt_id])
     gt_img_df = leftjoin(gt_info_df, img_cam_df, on=:img_id)
     # Per object
