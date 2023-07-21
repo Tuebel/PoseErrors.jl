@@ -23,6 +23,7 @@ export load_color_image
 export load_depth_image
 export load_mask_image
 export load_mesh
+export load_visib_mask_image
 export scene_dataframe
 export bop_scene_ids
 export bop_scene_path
