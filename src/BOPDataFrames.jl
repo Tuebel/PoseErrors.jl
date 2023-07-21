@@ -195,9 +195,17 @@ load_color_image(df_row, width, height) = load_image(df_row.color_path, df_row, 
 
 """
    load_mask_image(df_row, width, height)
-Load the mask image, crop it, and resize it to (width, height).
+Load the mask image which includes the occluded parts, crop it, and resize it to (width, height).
+See also [load_visib_mask_image](@ref)
 """
 load_mask_image(df_row, width, height) = load_image(df_row.mask_path, df_row, width, height) .|> Bool
+
+"""
+   load_visib_mask_image(df_row, width, height)
+Load the mask image which only covers the visible parts, crop it, and resize it to (width, height).
+See also [load_mask_image](@ref)
+"""
+load_visib_mask_image(df_row, width, height) = load_image(df_row.mask_visib_path, df_row, width, height) .|> Bool
 
 """
    load_mesh(df_row, width, height)
