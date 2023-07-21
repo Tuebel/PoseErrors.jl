@@ -24,4 +24,3 @@ using Test
     @test recall(threshold_errors(matched_errors, 1.5)) == mean([e < θ for e in matched_errors, θ in 1.5])
     @test recall(threshold_errors(matched_errors, 0.5:2.5)) == mean([e < θ for e in matched_errors, θ in 0.5:2.5])
 end
-

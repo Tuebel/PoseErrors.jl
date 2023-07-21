@@ -24,6 +24,8 @@ export load_depth_image
 export load_mask_image
 export load_mesh
 export scene_dataframe
+export bop_scene_ids
+export bop_scene_path
 
 # BOP dataset evaluation
 export match_errors

@@ -15,17 +15,13 @@ using StaticArrays
 # TODO load this file in PoseErrors.jl (new BOP.jl file there) and save the errors in a new file. Finally calculate recall, plot error histograms, recall/threshold curve.
 
 """
-    bop_dataset_path(dataset_name)
-Returns the full path to the BOP dataset's root directory.
+    bop_scene_ids(datasubset_path)
+Returns a vector of integers for the scene ids in the dataset which can be used in [`bop_scene_path`](@ref).
 """
-bop_dataset_path(dataset_name) = joinpath(pwd(), "datasets", dataset_name)
-datasubset_path(dataset_name, subset_name="test") = joinpath(bop_dataset_path(dataset_name), subset_name)
-
-"""
-    bop_scene_paths(dataset_name, [subset_name="test"])
-Returns a vector of the full paths to the scene directories of the BOP datasets scenes.
-"""
-bop_scene_paths(dataset_name, subset_name="test") = readdir(datasubset_path(dataset_name, subset_name); join=true)
+function bop_scene_ids(datasubset_path)
+    dirs = readdir(datasubset_path; join=true)
+    @. parse(Int, basename(dirs))
+end
 
 """
     lpad_bop(number)
@@ -35,10 +31,11 @@ Pads the number with zeros from the left for a total length of six digits.
 lpad_bop(number) = lpad(number, 6, "0")
 
 """
-    scene_path(dataset_name, [subset_name="test", scene_number=1])
+    bop_scene_ids(scene_id, root_dir..., dataset_name, subset_name)
 Returns the path to the scene directory with the given number of the datasets subset.
+e.g. 'tless/test_primesense/000001'
 """
-scene_path(dataset_name, subset_name="test", scene_number=1) = joinpath(datasubset_path(dataset_name, subset_name), lpad_bop(scene_number))
+bop_scene_path(datasubset_path, scene_id) = joinpath(datasubset_path, lpad_bop(scene_id))
 
 """
     image_dataframe(scene_path)
@@ -122,32 +119,32 @@ function gt_info_dataframe(scene_path; visib_threshold=0.1)
 end
 
 """
-    object_dataframe(dataset_name)
+    object_dataframe(dataset_path)
 Loads the object specific information into a DataFrame with the columns `obj_id, diameter, mesh`.
 """
-function object_dataframe(dataset_name)
-    path = bop_dataset_path(dataset_name)
-    json = JSON.parsefile(joinpath(path, "models_eval", "models_info.json"))
+function object_dataframe(dataset_path)
+    json = JSON.parsefile(joinpath(dataset_path, "models_eval", "models_info.json"))
     df = DataFrame(obj_id=Int[], diameter=Float32[], mesh_path=String[])
     for (obj_id, data) in json
         obj_id = parse(Int, obj_id)
         diameter = Float32(1e-3 .* data["diameter"])
         filename = "obj_" * lpad_bop(obj_id) * ".ply"
-        mesh_path = joinpath(path, "models_eval", filename)
+        mesh_path = joinpath(dataset_path, "models_eval", filename)
         push!(df, (obj_id, diameter, mesh_path))
     end
     df
 end
 
 """
-    scene_dataframe(dataset_name, subset_name, scene_number)
+    scene_dataframe(datasubset_path, scene_number)
 Loads the information of a single scene into a DataFrame by combining the image, object and gt information into a single DataFrame`.
 """
-function scene_dataframe(dataset_name="lm", subset_name="test", scene_number=1)
-    path = scene_path(dataset_name, subset_name, scene_number)
+function scene_dataframe(datasubset_path, scene_id=1)
+    # TODO allow custom root dir
+    path = bop_scene_path(datasubset_path, scene_id)
     # Per image
     img_df = image_dataframe(path)
-    img_df[!, :scene_id] .= scene_number
+    img_df[!, :scene_id] .= scene_id
     cam_df = camera_dataframe(path, img_df)
     img_cam_df = innerjoin(img_df, cam_df; on=:img_id)
     # Per evaluation
@@ -157,7 +154,7 @@ function scene_dataframe(dataset_name="lm", subset_name="test", scene_number=1)
     gt_info_df = rightjoin(gt_df, info_df; on=[:img_id, :gt_id])
     gt_img_df = leftjoin(gt_info_df, img_cam_df, on=:img_id)
     # Per object
-    obj_df = object_dataframe(dataset_name)
+    obj_df = object_dataframe(dirname(datasubset_path))
     leftjoin(gt_img_df, obj_df, on=:obj_id)
 end
 

@@ -8,8 +8,10 @@ using FileIO
 using PoseErrors
 using SciGL
 
-# Datasets
-s_df = scene_dataframe("tless", "test_primesense", 12)
+subset_path = joinpath(pwd(), "datasets", "tless", "test_primesense")
+scene_ids = bop_scene_ids(subset_path)
+bop_scene_path.(datasubset_path, scene_ids)
+s_df = scene_dataframe(subset_path, scene_ids[12])
 @assert nrow(s_df) == 297
 
 row = s_df[1, :]
