@@ -5,12 +5,16 @@
 using Accessors
 using CoordinateTransformations
 using PoseErrors
+using Random
 using Rotations
 using SciGL
 using Statistics
 using Test
 
-points = rand(3, 1_000)
+rng = Random.default_rng()
+Random.seed!(rng, 42)
+
+points = rand(rng, 3, 1_000)
 pose0 = Translation(1.0, 0, 0) ∘ LinearMap(RotXYZ(0.5, 0, 0))
 pose1 = LinearMap(RotXYZ(0.1, 0, 0)) ∘ pose0
 

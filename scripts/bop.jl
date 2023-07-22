@@ -10,7 +10,7 @@ using SciGL
 
 subset_path = joinpath(pwd(), "datasets", "tless", "test_primesense")
 scene_ids = bop_scene_ids(subset_path)
-bop_scene_path.(datasubset_path, scene_ids)
+bop_scene_path.(subset_path, scene_ids)
 s_df = scene_dataframe(subset_path, scene_ids[12])
 @assert nrow(s_df) == 297
 
@@ -34,7 +34,8 @@ mask_img = load_mask_image(row, WIDTH, HEIGHT)
 depth_img = load_depth_image(row, WIDTH, HEIGHT)
 depth_img ./ maximum(depth_img) .|> Gray
 # Mask the color and depth images
-depth_img .* mask_img ./ maximum(depth_img) .|> Gray
+masked_depth = depth_img .* mask_img
+masked_depth ./ maximum(depth_img) .|> Gray
 color_img .* mask_img
 
 # TODO load camera noise depending on dataset name? Probabilistic Robotics: Larger Noise than expected? Tune parameter?
