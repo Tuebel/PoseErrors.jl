@@ -7,6 +7,7 @@ export vsd_error
 
 export depth_to_distance
 export model_diameter
+export reproject_3D
 export surface_discrepancy
 export visibility_es, visibility_gt
 
@@ -23,6 +24,7 @@ export load_color_image
 export load_depth_image
 export load_mask_image
 export load_mesh
+export load_segmentation
 export load_visib_mask_image
 export scene_dataframe
 export bop_scene_ids
