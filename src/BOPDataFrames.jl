@@ -8,7 +8,6 @@ using FileIO
 using ImageCore
 using ImageIO
 using JSON
-using JSONTables
 using SciGL
 using StaticArrays
 
