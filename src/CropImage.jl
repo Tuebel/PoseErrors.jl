@@ -41,24 +41,24 @@ function clamp_boundingbox(left, right, top, bottom, width, height)
 end
 
 """
-    crop_boundingbox(center2d, width, height)
+    center_diameter_boundingbox(center2d, crop_size, image_size)
 Returns the parameters (left, right, top, bottom) of the bounding box to crop the image to.
 """
-function crop_boundingbox(center2d, crop_size, image_size)
+function center_diameter_boundingbox(center2d, crop_size, image_size)
     left, top = @. round(Int, center2d - crop_size / 2)
     right, bottom = @. round(Int, center2d + crop_size / 2)
     clamp_boundingbox(left, right, top, bottom, image_size...)
 end
 
 """
-    crop_boundingbox(camera, center3d, model_diameter, [camera_pose=one(Pose)])
+    center_diameter_boundingbox(camera, center3d, model_diameter, [camera_pose=one(Pose)])
 Returns the parameters (left, right, top, bottom) of the bounding box to crop the image to.
 """
-function crop_boundingbox(camera::CvCamera, center3d::AbstractVector, model_diameter, camera_pose::Pose=one(Pose))
+function center_diameter_boundingbox(camera::CvCamera, center3d::AbstractVector, model_diameter, camera_pose::Pose=one(Pose))
     center2d = crop_center(camera, center3d, camera_pose)
     diameter3d = 1.5 * model_diameter
     crop_size = @. (camera.f_x, camera.f_y) * diameter3d / center3d[3]
-    crop_boundingbox(center2d, crop_size, (camera.width, camera.height))
+    center_diameter_boundingbox(center2d, crop_size, (camera.width, camera.height))
 end
 
 """

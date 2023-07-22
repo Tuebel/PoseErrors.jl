@@ -58,7 +58,7 @@ full_img = draw(gl_context, scene) |> copy
     # Visually verified via full_img[center2d...] = 1
     @test round.(center2d) == [450, 350]
 
-    bounding_box = @inferred PoseErrors.crop_boundingbox(cv_camera, cube.pose.translation.translation, cube_diameter)
+    bounding_box = @inferred PoseErrors.center_diameter_boundingbox(cv_camera, cube.pose.translation.translation, cube_diameter)
     # Verified visually
     @test bounding_box == (257, 600, 157, 400)
     crop_img = @inferred PoseErrors.crop_image(full_img, bounding_box...)
@@ -67,7 +67,7 @@ full_img = draw(gl_context, scene) |> copy
 end
 
 # Resize cropped image to viewport size
-bounding_box = PoseErrors.crop_boundingbox(cv_camera, cube.pose.translation.translation, cube_diameter)
+bounding_box = PoseErrors.center_diameter_boundingbox(cv_camera, cube.pose.translation.translation, cube_diameter)
 
 gl_context = depth_offscreen_context((RE_SIZE)..., 1, Array)
 cube_diameter = model_diameter(cube_mesh)

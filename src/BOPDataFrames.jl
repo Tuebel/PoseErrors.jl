@@ -8,6 +8,7 @@ using FileIO
 using ImageCore
 using ImageIO
 using JSON
+using JSONTables
 using SciGL
 using StaticArrays
 
@@ -105,13 +106,18 @@ end
 
 function gt_info_dataframe(scene_path; visib_threshold=0.1)
     gt_info_json = JSON.parsefile(joinpath(scene_path, "scene_gt_info.json"))
-    df = DataFrame(img_id=Int[], gt_id=Int[], visib_fract=Float32[])
+    df = DataFrame(img_id=Int[], gt_id=Int[], visib_fract=Float32[], bbox_visib=NTuple{4,Int}[])
     for (img_id, body) in gt_info_json
         img_id = parse(Int, img_id)
         for (gt_id, gt_info) in enumerate(body)
             visib_fract = gt_info["visib_fract"]
             if (visib_fract >= visib_threshold)
-                push!(df, (img_id, gt_id, visib_fract))
+                x, y, width, height = gt_info["bbox_visib"]
+                left, right = x, x + width
+                top, bottom = y, y + height
+                # julia convention: start at 1
+                bbox_visib = (left, right, top, bottom) .+ 1
+                push!(df, (img_id, gt_id, visib_fract, bbox_visib))
             end
         end
     end
@@ -140,7 +146,6 @@ end
 Loads the information of a single scene into a DataFrame by combining the image, object and gt information into a single DataFrame`.
 """
 function scene_dataframe(datasubset_path, scene_id=1)
-    # TODO allow custom root dir
     path = bop_scene_path(datasubset_path, scene_id)
     # Per image
     img_df = image_dataframe(path)
@@ -159,25 +164,24 @@ function scene_dataframe(datasubset_path, scene_id=1)
 end
 
 """
-    crop_boundingbox(df_row)
+    center_diameter_boundingbox(df_row)
 Get the bounding box of the object & pose in the DataFrameRow.
 """
-crop_boundingbox(df_row::DataFrameRow) = crop_boundingbox(df_row.cv_camera, df_row.cam_t_m2c, df_row.diameter)
+center_diameter_boundingbox(df_row::DataFrameRow) = center_diameter_boundingbox(df_row.cv_camera, df_row.cam_t_m2c, df_row.diameter)
 
 """
     crop_camera(df_row)
 Get the cropped camera for the bounding box of the object & pose in the DataFrameRow.
 """
-crop_camera(df_row::DataFrameRow) = crop(df_row.cv_camera, crop_boundingbox(df_row)...)
+crop_camera(df_row::DataFrameRow) = crop(df_row.cv_camera, df_row.bbox_visib...)
 
 """
     load_image(path, df_row, width, height)
 Load an image in OpenGL convention: (x,y) coordinates instead of Julia images (y,x) convention.
 """
 function load_image(path, df_row, width, height)
-    bounding_box = crop_boundingbox(df_row)
     image = path |> load |> transpose
-    crop_image(image, bounding_box..., width, height)
+    crop_image(image, df_row.bbox_visib..., width, height)
 end
 
 load_depth_image(path, df_row, width, height) = (load_image(path, df_row, width, height) |> channelview |> rawview) .* Float32(1e-3 * df_row.depth_scale)
@@ -231,4 +235,26 @@ function rdf_to_binary_mask(segmentation)
         is_mask = !is_mask
     end
     seg_img
+end
+
+# TODO dataframe for the evaluation (gt)
+# TODO dataframe for the test targets + gt pose / mask
+# TODO dataframe for the test targets + default detections
+
+function scene_test_targets(datasubset_path, scene_id=1)
+    path = bop_scene_path(datasubset_path, scene_id)
+    # Per image
+    # img_df = image_dataframe(path)
+    # img_df[!, :scene_id] .= scene_id
+    # cam_df = camera_dataframe(path, img_df)
+    # img_cam_df = innerjoin(img_df, cam_df; on=:img_id)
+    # # Per evaluation
+    # gt_df = gt_dataframe(path)
+    # info_df = gt_info_dataframe(path)
+    # # only visib_fract >= 0.1 is considered valid → gt_info_df might include less entries on purpose
+    # gt_info_df = rightjoin(gt_df, info_df; on=[:img_id, :gt_id])
+    # gt_img_df = leftjoin(gt_info_df, img_cam_df, on=:img_id)
+    # # Per object
+    # obj_df = object_dataframe(dirname(datasubset_path))
+    # leftjoin(gt_img_df, obj_df, on=:obj_id)
 end
