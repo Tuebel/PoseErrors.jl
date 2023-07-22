@@ -195,14 +195,14 @@ load_color_image(df_row, width, height) = load_image(df_row.color_path, df_row, 
 
 """
    load_mask_image(df_row, width, height)
-Load the mask image which includes the occluded parts, crop it, and resize it to (width, height).
+Load the gt mask image which includes the occluded parts, crop it, and resize it to (width, height).
 See also [load_visib_mask_image](@ref)
 """
 load_mask_image(df_row, width, height) = load_image(df_row.mask_path, df_row, width, height) .|> Bool
 
 """
    load_visib_mask_image(df_row, width, height)
-Load the mask image which only covers the visible parts, crop it, and resize it to (width, height).
+Load the gt mask image which only covers the visible parts, crop it, and resize it to (width, height).
 See also [load_mask_image](@ref)
 """
 load_visib_mask_image(df_row, width, height) = load_image(df_row.mask_visib_path, df_row, width, height) .|> Bool
@@ -212,3 +212,23 @@ load_visib_mask_image(df_row, width, height) = load_image(df_row.mask_visib_path
 Load the mesh file from the disk and scale it to meters.
 """
 load_mesh(df_row) = Scale(Float32(1e-3))(load(df_row.mesh_path))
+
+"""
+    load_segmentation(df_row)
+Load the estimated segmentation by converting the rdf mask to a binary mask.
+"""
+load_segmentation(df_row) = rdf_to_binary_mask(df_row.segmentation)
+
+function rdf_to_binary_mask(segmentation)
+    seg_counts = segmentation.counts
+    seg_size = segmentation.size
+    seg_img = Array{Bool}(undef, seg_size...)
+    is_mask = false
+    c_sum = 1
+    for c in seg_counts
+        seg_img[c_sum:c_sum+c-1] .= is_mask
+        c_sum += c
+        is_mask = !is_mask
+    end
+    seg_img
+end
