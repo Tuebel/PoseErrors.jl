@@ -11,8 +11,12 @@ using SciGL
 subset_path = joinpath(pwd(), "datasets", "tless", "test_primesense")
 scene_ids = bop_scene_ids(subset_path)
 bop_scene_path.(subset_path, scene_ids)
-s_df = scene_dataframe(subset_path, scene_ids[12])
-@assert nrow(s_df) == 297
+s_df = gt_targets(subset_path, scene_ids[12])
+@assert nrow(s_df) == 293
+
+gt = PoseErrors.gt_dataframe(subset_path, scene_ids[12])
+info = PoseErrors.gt_info_dataframe(subset_path, scene_ids[12])
+gt_info = leftjoin(info, gt; on=[:scene_id, :img_id, :gt_id])
 
 row = s_df[1, :]
 WIDTH = 400
@@ -23,7 +27,7 @@ gl_context = depth_context = depth_offscreen_context(WIDTH, HEIGHT, DEPTH, Array
 # Scene
 camera = crop_camera(row)
 mesh = upload_mesh(gl_context, load_mesh(row))
-@reset mesh.pose = Pose(row.cam_t_m2c, row.cam_R_m2c)
+@reset mesh.pose = Pose(row.gt_t, row.gt_R)
 scene = Scene(camera, [mesh])
 
 # Draw result for visual validation (OpenGL not julia convention → transposed)
@@ -32,14 +36,13 @@ render_img = draw(gl_context, scene)
 render_img ./ maximum(render_img) .|> Gray
 mask_img = load_mask_image(row, WIDTH, HEIGHT)
 depth_img = load_depth_image(row, WIDTH, HEIGHT)
-depth_img ./ maximum(depth_img) .|> Gray
 # Mask the color and depth images
 masked_depth = depth_img .* mask_img
 masked_depth ./ maximum(depth_img) .|> Gray
 color_img .* mask_img
 
 # Test targets
-test_targets = scene_test_targets(subset_path, 18)
+test_targets = test_targets(subset_path, scene_ids[12])
 row = test_targets[1, :]
 color_img = load_color_image(row, WIDTH, HEIGHT)
 depth_img = load_depth_image(row, WIDTH, HEIGHT);

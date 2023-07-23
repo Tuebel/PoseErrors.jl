@@ -83,24 +83,24 @@ end
 
 """
     gt_dataframe(datasubset_path, scene_id)
-Load the ground truth information for each object and image as a DataFrame with the columns `scene_id, img_id, obj_id, cam_R_m2c, cam_t_m2c, mask_path, mask_visib_path`.
+Load the ground truth information for each object and image as a DataFrame with the columns `scene_id, img_id, obj_id, gt_R, gt_t, mask_path, mask_visib_path`.
 """
 function gt_dataframe(datasubset_path, scene_id)
     scene_path = bop_scene_path(datasubset_path, scene_id)
     gt_json = JSON.parsefile(joinpath(scene_path, "scene_gt.json"))
-    df = DataFrame(scene_id=Int[], img_id=Int[], obj_id=Int[], gt_id=Int[], cam_R_m2c=QuatRotation[], cam_t_m2c=Vector{Float32}[], mask_path=String[], mask_visib_path=String[])
+    df = DataFrame(scene_id=Int[], img_id=Int[], obj_id=Int[], gt_id=Int[], gt_R=QuatRotation[], gt_t=Vector{Float32}[], mask_path=String[], mask_visib_path=String[])
     for (img_id, body) in gt_json
         img_id = parse(Int, img_id)
         for (gt_id, gt) in enumerate(body)
             obj_id = gt["obj_id"]
             # Saved row-wise, Julia is column major
-            cam_R_m2c = reshape(gt["cam_R_m2c"], 3, 3)' |> RotMatrix3 |> QuatRotation
-            cam_t_m2c = Float32.(1e-3 * gt["cam_t_m2c"])
+            gt_R = reshape(gt["cam_R_m2c"], 3, 3)' |> RotMatrix3 |> QuatRotation
+            gt_t = Float32.(1e-3 * gt["cam_t_m2c"])
             # masks paths (mind julia vs python indexing)
             mask_filename = lpad_bop(img_id) * "_" * lpad_bop(gt_id - 1) * ".png"
             mask_path = joinpath(scene_path, "mask", mask_filename)
             mask_visib_path = joinpath(scene_path, "mask_visib", mask_filename)
-            push!(df, (scene_id, img_id, obj_id, gt_id, cam_R_m2c, cam_t_m2c, mask_path, mask_visib_path))
+            push!(df, (scene_id, img_id, obj_id, gt_id, gt_R, gt_t, mask_path, mask_visib_path))
         end
     end
     df
@@ -134,7 +134,7 @@ end
 
 """
     object_dataframe(dataset_path)
-Loads the object specific information into a DataFrame with the columns `obj_id, diameter, mesh`.
+Loads the object specific information into a DataFrame with the columns `obj_id, diameter, mesh_path`.
 """
 function object_dataframe(dataset_path)
     json = JSON.parsefile(joinpath(dataset_path, "models_eval", "models_info.json"))
@@ -147,27 +147,6 @@ function object_dataframe(dataset_path)
         push!(df, (obj_id, diameter, mesh_path))
     end
     df
-end
-
-"""
-    scene_dataframe(datasubset_path, scene_id)
-Loads the information of a single scene into a DataFrame by combining the image, object and gt information into a single DataFrame`.
-"""
-function scene_dataframe(datasubset_path, scene_id)
-    # Per image
-    img_df = image_dataframe(datasubset_path, scene_id)
-    img_df[!, :scene_id] .= scene_id
-    cam_df = camera_dataframe(datasubset_path, scene_id, img_df)
-    img_cam_df = innerjoin(img_df, cam_df; on=[:scene_id, :img_id])
-    # Per evaluation
-    gt_df = gt_dataframe(datasubset_path, scene_id)
-    info_df = gt_info_dataframe(datasubset_path, scene_id)
-    # only visib_fract >= 0.1 is considered valid → gt_info_df might include less entries on purpose
-    gt_info_df = rightjoin(gt_df, info_df; on=[:scene_id, :img_id, :gt_id])
-    gt_img_df = leftjoin(gt_info_df, img_cam_df, on=[:scene_id, :img_id])
-    # Per object
-    obj_df = object_dataframe(dirname(datasubset_path))
-    leftjoin(gt_img_df, obj_df, on=:obj_id)
 end
 
 """

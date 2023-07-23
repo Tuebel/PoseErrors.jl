@@ -26,10 +26,11 @@ export load_mask_image
 export load_mesh
 export load_segmentation
 export load_visib_mask_image
-export scene_dataframe
 export bop_scene_ids
 export bop_scene_path
-export scene_test_targets
+
+export gt_targets
+export test_targets
 
 # BOP dataset evaluation
 export match_errors

@@ -9,7 +9,62 @@ using JSONTables
 # TODO dataframe for the test targets + default detections
 
 """
-    targets_dataframe(datasubset_path, scene_id, [detections_file="bop23_default_task4.json"])
+    scene_test_targets(datasubset_path, scene_id; [targets_file, detections_file, remove_bad])
+Load the test targets for a specified scene with the corresponding detections.
+By default only detections with a `score > 0.5` are included or at least `inst_count` detections if enough detections are available.
+Returns a DataFrame with the columns `scene_id, img_id, obj_id, inst_count, diameter, mesh_path, bbox, score, segmentation`.
+"""
+function test_targets(datasubset_path, scene_id; targets_file="test_targets_bop19.json", detections_file="default_detections.json", remove_bad=true)
+    # BOP test targets
+    targets_df = targets_dataframe(datasubset_path, scene_id, targets_file)
+
+    # Images & Camera parameters
+    img_df = image_dataframe(datasubset_path, scene_id)
+    leftjoin!(targets_df, img_df; on=[:scene_id, :img_id])
+    cam_df = camera_dataframe(datasubset_path, scene_id, img_df)
+    leftjoin!(targets_df, cam_df; on=[:scene_id, :img_id])
+
+    # Object diameter and mesh_path
+    obj_df = object_dataframe(dirname(datasubset_path))
+    leftjoin!(targets_df, obj_df, on=:obj_id)
+
+    # Default detections and segmentations
+    det_df = detections_dataframe(datasubset_path, scene_id, detections_file)
+    # If no detection is available it does not make sense to include the row
+    targets_df = innerjoin(targets_df, det_df; on=[:scene_id, :img_id, :obj_id])
+    remove_bad ? remove_bad_detections(targets_df) : targets_df
+end
+
+"""
+    scene_gt_targets(datasubset_path, scene_id; [targets_file])
+Load the test targets for a specified scene with the corresponding *ground truth* visible detections and pose.
+Returns a DataFrame with the columns `scene_id, img_id, obj_id, diameter, mesh_path, inst_count, bbox, score, segmentation`.
+"""
+function gt_targets(datasubset_path, scene_id; targets_file="test_targets_bop19.json")
+    # BOP test targets
+    targets_df = targets_dataframe(datasubset_path, scene_id, targets_file)
+
+    # Images & Camera parameters
+    img_df = image_dataframe(datasubset_path, scene_id)
+    leftjoin!(targets_df, img_df; on=[:scene_id, :img_id])
+    cam_df = camera_dataframe(datasubset_path, scene_id, img_df)
+    leftjoin!(targets_df, cam_df; on=[:scene_id, :img_id])
+
+    # Object diameter and mesh_path
+    obj_df = object_dataframe(dirname(datasubset_path))
+    leftjoin!(targets_df, obj_df, on=:obj_id)
+
+    # Ground truth
+    gt_df = gt_dataframe(datasubset_path, scene_id)
+    info_df = gt_info_dataframe(datasubset_path, scene_id)
+    # only visib_fract >= 0.1 is considered valid → gt_info_df might include less entries on purpose
+    gt_info_df = leftjoin(info_df, gt_df; on=[:scene_id, :img_id, :gt_id])
+
+    leftjoin(targets_df, gt_info_df; on=[:scene_id, :img_id, :obj_id])
+end
+
+"""
+    targets_dataframe(datasubset_path, scene_id, [detections_file="default_detections.json"])
 Load the test targets from the specified file.
 Only detections for the `scene_id` are returned as a DataFrame with columns `scene_id, img_id, obj_id, inst_count`
 """
@@ -23,11 +78,11 @@ function targets_dataframe(datasubset_path, scene_id, targets_file="test_targets
 end
 
 """
-    detections_dataframe(datasubset_path, scene_id, [detections_file="bop23_default_task4.json"])
+    detections_dataframe(datasubset_path, scene_id, [detections_file="default_detections.json"])
 Load the detections from the specified file.
 Only detections for the `scene_id` are returned as a DataFrame with columns `scene_id, img_id, obj_id, bbox, score,  segmentation`
 """
-function detections_dataframe(datasubset_path, scene_id, detections_file="bop23_default_task4.json")
+function detections_dataframe(datasubset_path, scene_id, detections_file="default_detections.json")
     json = jsontable(joinpath(datasubset_path, "..", detections_file))
     df = DataFrame(json)
     filter!(row -> row.scene_id == scene_id, df)
@@ -46,27 +101,6 @@ end
 function convert_bop_bbox(bbox)
     left, top, width, height = bbox
     left, left + width, top, top + height
-end
-
-"""
-    scene_test_targets(datasubset_path, scene_id; targets_file="test_targets_bop19.json", detections_file="bop23_default_task4.json", remove_bad=true)
-Load the test targets for a specified scene with the corresponding detections.
-By default only detections with a `score > 0.5` are included or at least `inst_count` detections if enough detections are available.
-Returns a DataFrame with the columns `scene_id, img_id, obj_id, inst_count, bbox, score, segmentation`.
-"""
-function scene_test_targets(datasubset_path, scene_id; targets_file="test_targets_bop19.json", detections_file="bop23_default_task4.json", remove_bad=true)
-    # BOP test images
-    targets_df = targets_dataframe(datasubset_path, scene_id, targets_file)
-    # Images & Camera parameters
-    img_df = image_dataframe(datasubset_path, scene_id)
-    leftjoin!(targets_df, img_df; on=[:scene_id, :img_id])
-    cam_df = camera_dataframe(datasubset_path, scene_id, img_df)
-    leftjoin!(targets_df, cam_df; on=[:scene_id, :img_id])
-    # Default detections and segmentations
-    det_df = detections_dataframe(datasubset_path, scene_id, detections_file)
-    # If no detection is available it does not make sense to include the row
-    targets_df = innerjoin(targets_df, det_df; on=[:scene_id, :img_id, :obj_id])
-    remove_bad ? remove_bad_detections(targets_df) : targets_df
 end
 
 """

@@ -8,6 +8,11 @@ However, annotating the symmetries is tedious and heavily depends on the choice 
 For a large set of objects like surgical instruments which are not exported in a standardized / symmetry aligned frame, this is impractical.
 So, similar to ([Gorschlüter et al. 2022](https://doi.org/10.3390/jimaging8030053)) we use ADD-S and VDS ([Hodan et. al 2016](https://doi.org/10.1007/978-3-319-49409-8_52)) as metrics.
 
+# Setup for BOP dataset evaluation
+Extract the BOP datasets as described on their [website](https://bop.felk.cvut.cz/datasets/).
+Move the detections JSON to the matching datasets test directory and rename it to `default_detections.json`, e.g. *datasets/tless/default_detections.json*.
+
+You could also you the keyword argument `detections_file` of `scene_test_targets` to specify another file in the test directory.
 
 # Maximum Distance of Model Points for indistinguishable views (MDD-S)
 To avoid defining symmetries and the influence of the mesh sampling, we implement the MDD-S by replacing the ``avg`` in ADD-S with ``max``:
