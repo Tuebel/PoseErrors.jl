@@ -29,6 +29,7 @@ export load_visib_mask_image
 export scene_dataframe
 export bop_scene_ids
 export bop_scene_path
+export scene_test_targets
 
 # BOP dataset evaluation
 export match_errors
@@ -62,6 +63,7 @@ include("VSD.jl")
 # BOP dataset evaluation
 include("CropImage.jl")
 include("BOPDataFrames.jl")
+include("BOPTestDataFrames.jl")
 include("BOP.jl")
 
 end # module PoseErrors
