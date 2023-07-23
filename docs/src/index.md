@@ -14,6 +14,17 @@ Move the detections JSON to the matching datasets test directory and rename it t
 
 You could also you the keyword argument `detections_file` of `scene_test_targets` to specify another file in the test directory.
 
+## Loading the BOP datasets
+Your first entry points should be the methods to load the according targets.
+These load the required image files, mesh files, camera parameters, etc.
+* `gt_targets`: Loads the ground truth pose as `:gt_t` and `:gt_R`, the **ground truth** visible bounding box, and the **gt** mask image paths.
+* `test_targets`: the **estimated** bounding box, and the **estimated** segmentation masks.
+
+Iterate each row and load cropped images via:
+* `load_color_img(row, width, height)` 
+* `load_depth_img(row, width, height)` scaled in meters as Float32
+* `load_mask_img(row, width, height)` masks the visible object surface either gt from disk or from the detections file in the test targets.
+
 # Maximum Distance of Model Points for indistinguishable views (MDD-S)
 To avoid defining symmetries and the influence of the mesh sampling, we implement the MDD-S by replacing the ``avg`` in ADD-S with ``max``:
 ```math

@@ -42,8 +42,8 @@ masked_depth ./ maximum(depth_img) .|> Gray
 color_img .* mask_img
 
 # Test targets
-test_targets = test_targets(subset_path, scene_ids[12])
-row = test_targets[1, :]
+test_df = test_targets(subset_path, scene_ids[12])
+row = test_df[1, :]
 color_img = load_color_image(row, WIDTH, HEIGHT)
 depth_img = load_depth_image(row, WIDTH, HEIGHT);
 depth_img ./ maximum(depth_img) .|> Gray

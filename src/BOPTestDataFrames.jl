@@ -4,10 +4,6 @@
 
 using JSONTables
 
-# TODO dataframe for the evaluation (gt)
-# TODO dataframe for the test targets + gt pose / mask
-# TODO dataframe for the test targets + default detections
-
 """
     scene_test_targets(datasubset_path, scene_id; [targets_file, detections_file, remove_bad])
 Load the test targets for a specified scene with the corresponding detections.
