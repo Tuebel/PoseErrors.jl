@@ -64,7 +64,7 @@ include("VSD.jl")
 # BOP dataset evaluation
 include("CropImage.jl")
 include("BOPDataFrames.jl")
-include("BOPTestDataFrames.jl")
+include("BOPTargetsDataFrames.jl")
 include("BOP.jl")
 
 end # module PoseErrors
