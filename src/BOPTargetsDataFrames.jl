@@ -32,7 +32,7 @@ function test_targets(datasubset_path, scene_id; targets_file="test_targets_bop1
 end
 
 """
-    scene_gt_targets(datasubset_path, scene_id; [targets_file])
+    gt_targets(datasubset_path, scene_id; [targets_file])
 Load the test targets for a specified scene with the corresponding *ground truth* visible detections and pose.
 Returns a DataFrame with the columns `scene_id, img_id, obj_id, diameter, mesh_path, inst_count, bbox, score, segmentation`.
 """
