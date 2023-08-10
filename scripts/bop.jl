@@ -44,10 +44,10 @@ color_img .* mask_img
 # Test targets
 test_df = test_targets(subset_path, scene_ids[12])
 row = test_df[1, :]
-color_img = load_color_image(row, WIDTH, HEIGHT)
+color_img = load_color_image(row, WIDTH, HEIGHT);
 depth_img = load_depth_image(row, WIDTH, HEIGHT);
 depth_img ./ maximum(depth_img) .|> Gray
-mask_img = load_mask_image(row, WIDTH, HEIGHT);
+mask_img = load_mask_image(row, WIDTH, HEIGHT)
 color_img .* mask_img
 
 # TODO load camera noise depending on dataset name? Probabilistic Robotics: Larger Noise than expected? Tune parameter?
