@@ -95,7 +95,7 @@ end
 (left, top, width, height) → (left, right, top, bottom)
 """
 function convert_bop_bbox(bbox)
-    left, top, width, height = bbox
+    left, top, width, height = bbox .+ 1
     left, left + width, top, top + height
 end
 
