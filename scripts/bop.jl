@@ -11,14 +11,14 @@ using SciGL
 subset_path = joinpath(pwd(), "datasets", "tless", "test_primesense")
 scene_ids = bop_scene_ids(subset_path)
 bop_scene_path.(subset_path, scene_ids)
-s_df = gt_targets(subset_path, scene_ids[12])
-@assert nrow(s_df) == 293
+gt_df = gt_targets(subset_path, scene_ids[12])
+@assert nrow(gt_df) == 293
 
 gt = PoseErrors.gt_dataframe(subset_path, scene_ids[12])
 info = PoseErrors.gt_info_dataframe(subset_path, scene_ids[12])
 gt_info = leftjoin(info, gt; on=[:scene_id, :img_id, :gt_id])
 
-row = s_df[1, :]
+row = gt_df[1, :]
 WIDTH = 400
 HEIGHT = 300
 DEPTH = 1
@@ -50,4 +50,24 @@ depth_img ./ maximum(depth_img) .|> Gray
 mask_img = load_mask_image(row, WIDTH, HEIGHT)
 color_img .* mask_img
 
-# TODO load camera noise depending on dataset name? Probabilistic Robotics: Larger Noise than expected? Tune parameter?
+# Train targets
+subset_path = joinpath(pwd(), "datasets", "lmo", "train")
+train_df = train_targets(subset_path, 2)
+# LM training contains one object per image
+@assert findfirst(x -> x > 1, train_df.inst_count) == nothing
+row = train_df[1, :]
+color_img = load_color_image(row, WIDTH, HEIGHT);
+depth_img = load_depth_image(row, WIDTH, HEIGHT);
+depth_img ./ maximum(depth_img) .|> Gray
+mask_img = load_mask_image(row, WIDTH, HEIGHT)
+color_img .* mask_img
+
+subset_path = joinpath(pwd(), "datasets", "tless", "test_primesense")
+train_df = train_targets(subset_path, 12)
+@assert train_df.inst_count[1] == 2
+row = train_df[1, :]
+color_img = load_color_image(row, WIDTH, HEIGHT);
+depth_img = load_depth_image(row, WIDTH, HEIGHT);
+depth_img ./ maximum(depth_img) .|> Gray
+mask_img = load_mask_image(row, WIDTH, HEIGHT)
+color_img .* mask_img

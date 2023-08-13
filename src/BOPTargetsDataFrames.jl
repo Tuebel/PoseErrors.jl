@@ -5,7 +5,7 @@
 using JSONTables
 
 """
-    scene_test_targets(datasubset_path, scene_id; [targets_file, detections_file, remove_bad])
+    test_targets(datasubset_path, scene_id; [targets_file, detections_file, remove_bad])
 Load the test targets for a specified scene with the corresponding detections.
 By default only detections with a `score > 0.5` are included or at least `inst_count` detections if enough detections are available.
 Returns a DataFrame with the columns `scene_id, img_id, obj_id, inst_count, diameter, mesh_path, bbox, score, segmentation`.
@@ -34,7 +34,7 @@ end
 """
     gt_targets(datasubset_path, scene_id; [targets_file])
 Load the test targets for a specified scene with the corresponding *ground truth* visible detections and pose.
-Returns a DataFrame with the columns `scene_id, img_id, obj_id, diameter, mesh_path, inst_count, bbox, score, segmentation`.
+Returns a DataFrame with the columns `scene_id, img_id, obj_id, diameter, mesh_path, inst_count, bbox, color_path, depth_path, mask_path, mask_visib_path, depth_scale, gt_t, gt_R, img_size, cv_camera`.
 """
 function gt_targets(datasubset_path, scene_id; targets_file="test_targets_bop19.json")
     # BOP test targets
@@ -53,14 +53,41 @@ function gt_targets(datasubset_path, scene_id; targets_file="test_targets_bop19.
     # Ground truth
     gt_df = gt_dataframe(datasubset_path, scene_id)
     info_df = gt_info_dataframe(datasubset_path, scene_id)
-    # only visib_fract >= 0.1 is considered valid → gt_info_df might include less entries on purpose
+    # Only visib_fract >= 0.1 is considered valid → gt_info_df might include less entries on purpose
     gt_info_df = leftjoin(info_df, gt_df; on=[:scene_id, :img_id, :gt_id])
 
     leftjoin(targets_df, gt_info_df; on=[:scene_id, :img_id, :obj_id])
 end
 
 """
-    targets_dataframe(datasubset_path, scene_id, [detections_file="default_detections.json"])
+    train_targets(datasubset_path, scene_id)
+Load the training targets for a specified scene which are all images and annotated poses.
+Suitable for train and validation datasets.
+Returns a DataFrame with the columns `scene_id, img_id, obj_id, diameter, mesh_path, inst_count, bbox, color_path, depth_path, mask_path, mask_visib_path, depth_scale, gt_t, gt_R, img_size, cv_camera`.
+"""
+function train_targets(datasubset_path, scene_id)
+    # Ground truth
+    gt_df = gt_dataframe(datasubset_path, scene_id)
+    info_df = gt_info_dataframe(datasubset_path, scene_id)
+    # Only visib_fract >= 0.1 is considered valid → gt_info_df might include less entries on purpose
+    gt_info_df = leftjoin(info_df, gt_df; on=[:scene_id, :img_id, :gt_id])
+    # Calculate instant count for valid views
+    img_obj_groups = groupby(gt_info_df, [:img_id, :obj_id])
+    gt_info_df = transform(img_obj_groups, nrow => :inst_count)
+
+    # Images & Camera parameters
+    img_df = image_dataframe(datasubset_path, scene_id)
+    leftjoin!(gt_info_df, img_df; on=[:scene_id, :img_id])
+    cam_df = camera_dataframe(datasubset_path, scene_id, img_df)
+    leftjoin!(gt_info_df, cam_df; on=[:scene_id, :img_id])
+
+    # Object diameter and mesh_path
+    obj_df = object_dataframe(dirname(datasubset_path))
+    leftjoin!(gt_info_df, obj_df, on=:obj_id)
+end
+
+"""
+    targets_dataframe(datasubset_path, scene_id, [targets_file="test_targets_bop19.json"])
 Load the test targets from the specified file.
 Only detections for the `scene_id` are returned as a DataFrame with columns `scene_id, img_id, obj_id, inst_count`
 """

@@ -31,6 +31,7 @@ export bop_scene_path
 
 export gt_targets
 export test_targets
+export train_targets
 
 # BOP dataset evaluation
 export match_errors
