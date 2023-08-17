@@ -134,17 +134,21 @@ end
 
 """
     object_dataframe(dataset_path)
-Loads the object specific information into a DataFrame with the columns `obj_id, diameter, mesh_path`.
+Loads the object specific information into a DataFrame with the columns `obj_id, diameter, mesh_path, mesh_eval_path`.
+If CAD exists, `mesh_path` points to it. Otherwise the reconstructed mesh is used
 """
 function object_dataframe(dataset_path)
-    json = JSON.parsefile(joinpath(dataset_path, "models_eval", "models_info.json"))
-    df = DataFrame(obj_id=Int[], diameter=Float32[], mesh_path=String[])
+    # If CAD exists use it otherwise the reconstructed one
+    models_path = isdir(joinpath(dataset_path, "models_cad")) ? joinpath(dataset_path, "models_cad") : joinpath(dataset_path, "models")
+    json = JSON.parsefile(joinpath(models_path, "models_info.json"))
+    df = DataFrame(obj_id=Int[], diameter=Float32[], mesh_path=String[], mesh_eval_path=String[])
     for (obj_id, data) in json
         obj_id = parse(Int, obj_id)
         diameter = Float32(1e-3 .* data["diameter"])
         filename = "obj_" * lpad_bop(obj_id) * ".ply"
-        mesh_path = joinpath(dataset_path, "models_eval", filename)
-        push!(df, (obj_id, diameter, mesh_path))
+        mesh_path = joinpath(models_path, filename)
+        mesh_eval_path = joinpath(dataset_path, "models_eval", filename)
+        push!(df, (obj_id, diameter, mesh_path, mesh_eval_path))
     end
     df
 end
