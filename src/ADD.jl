@@ -79,5 +79,5 @@ end
 Support different point formats: vectors of points/vectors, meshes, matrices [point,n_points]
 """
 convert_points(points::AbstractVector{<:AbstractVector}) = SVector{3}.(points)
-convert_points(points::AbstractMatrix) = [SVector{3}(x) for x in eachcol(points)]
+convert_points(points::AbstractMatrix) = SVector{3}.(eachcol(points))
 convert_points(points::Mesh) = convert_points(points.position)
