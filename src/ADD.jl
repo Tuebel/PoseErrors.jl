@@ -52,7 +52,7 @@ end
     transform_points(points, pose)
 Returns an AbstractVector{<:SVector} which can be processed by NearestNeighbors.jl
 """
-transform_points(points::AbstractVector{<:AbstractVector}, pose::AffineMap) = pose.(convert_points(points))
+transform_points(points::AbstractVector{<:AbstractVector}, pose) = pose.(convert_points(points))
 transform_points(points::AbstractMatrix, pose) = transform_points(convert_points(points), pose)
 
 """
