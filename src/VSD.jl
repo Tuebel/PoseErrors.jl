@@ -75,7 +75,7 @@ function surface_discrepancy(es_dist::AbstractArray, gt_dist::AbstractArray, τ:
     inf_to_one.(complement_over_union)
 end
 
-surface_discrepancy(estimate::AbstractArray, ground_truth::AbstractArray, τ::AbstractVector{<:Real}) = [surface_discrepancy(estimate, ground_truth, x) for x in τ]
+surface_discrepancy(es_dist::AbstractArray, gt_dist::AbstractArray, τ::AbstractVector{<:Real}) = [surface_discrepancy(es_dist, gt_dist, x) for x in τ]
 
 """
     discrepancy_cost(dist_a, dist_b, τ)

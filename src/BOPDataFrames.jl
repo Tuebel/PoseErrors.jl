@@ -202,10 +202,17 @@ function load_mask_image(df_row, width, height)
 end
 
 """
-   load_mesh(df_row, width, height)
+   load_mesh(df_row)
 Load the mesh file from the disk and scale it to meters.
 """
 load_mesh(df_row) = Scale(Float32(1e-3))(load(df_row.mesh_path))
+
+"""
+   load_mesh_eval(df_row)
+Load the evaluation mesh file from the disk and scale it to meters.
+Use it only for point distance metrics like ADDS or MDDS.
+"""
+load_mesh_eval(df_row) = Scale(Float32(1e-3))(load(df_row.mesh_eval_path))
 
 """
     load_segmentation(df_row)
