@@ -24,6 +24,7 @@ export load_color_image
 export load_depth_image
 export load_mask_image
 export load_mesh
+export load_mesh_eval
 export load_segmentation
 export load_visib_mask_image
 export bop_scene_ids
