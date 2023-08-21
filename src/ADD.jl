@@ -10,11 +10,11 @@ Reimplementation of [https://github.com/thodan/bop_toolkit/blob/master/bop_toolk
 add_error(points, estimate, ground_truth) = mean(model_point_distances(points, estimate, ground_truth))
 
 """
-    normalized_add_error(points, estimate, ground_truth)
+    normalized_add_error(points, estimate, ground_truth, [diameter=model_diameter(points)])
 Normalized version of "Average Distance of Model Points for objects with no indistinguishable views" (Hinterstoisser et al. 2012).
 The error is divided by the diameter of the point cloud.
 """
-normalized_add_error(points, estimate, ground_truth) = add_error(points, estimate, ground_truth) / model_diameter(points)
+normalized_add_error(points, estimate, ground_truth, diameter=model_diameter(points)) = add_error(points, estimate, ground_truth) / diameter
 
 
 """
@@ -26,11 +26,11 @@ Reimplementation of [https://github.com/thodan/bop_toolkit/blob/master/bop_toolk
 adds_error(points, estimate, ground_truth) = mean(nearest_neighbor_distances(points, estimate, ground_truth))
 
 """
-    normalized_adds_error(points, estimate, ground_truth)
+    normalized_adds_error(points, estimate, ground_truth, [diameter=model_diameter(points)])
 Normalized version of "Average Distance of Model Points for objects with indistinguishable views" (Hinterstoisser et al. 2012).
 The error is divided by the diameter of the point cloud.
 """
-normalized_adds_error(points, estimate, ground_truth) = adds_error(points, estimate, ground_truth) / model_diameter(points)
+normalized_adds_error(points, estimate, ground_truth, diameter=model_diameter(points)) = adds_error(points, estimate, ground_truth) / diameter
 
 """
     mdds_error(points, estimate, ground_truth)
@@ -41,11 +41,11 @@ Compared to the Maximum Symmetry-Aware Surface Distance (MSSD) used in the BOP c
 mdds_error(points, estimate, ground_truth) = maximum(nearest_neighbor_distances(points, estimate, ground_truth))
 
 """
-    normalized_mdds_error(points, estimate, ground_truth)
+    normalized_mdds_error(points, estimate, ground_truth, [diameter=model_diameter(points)])
 Normalized version of "Maximum Distance of Model Points for objects with indistinguishable views".
 The error is divided by the diameter of the point cloud.
 """
-normalized_mdds_error(points, estimate, ground_truth) = mdds_error(points, estimate, ground_truth) / model_diameter(points)
+normalized_mdds_error(points, estimate, ground_truth, diameter=model_diameter(points)) = mdds_error(points, estimate, ground_truth) / diameter
 
 """
     nearest_neighbor_distances(points, estimate, ground_truth)

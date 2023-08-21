@@ -30,12 +30,11 @@ function vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh
 end
 
 """
-    normalized_vsd_error(distance_context, cv_camera, mesh, measured_dist, es_poses, gt_pose; [δ=0.015, τ=0.02])
+    normalized_vsd_error(distance_context, cv_camera, mesh, measured_dist, es_poses, gt_pose, [diameter=model_diameter(points); δ=0.015, τ=0.02])
 Normalized version of the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
 Values of τ are multiplied by the object diameter.
 """
-function normalized_vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose; δ=BOP_δ, τ=BOP_18_τ)
-    diameter = model_diameter(mesh.position)
+function normalized_vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose, diameter=model_diameter(points); δ=BOP_δ, τ=BOP_18_τ)
     normalized_τ = τ .* diameter
     vsd_error(distance_context, cv_camera, mesh, measured_dist, es_poses, gt_pose; δ=δ, τ=normalized_τ)
 end
