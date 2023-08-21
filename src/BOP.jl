@@ -7,28 +7,33 @@
 Greedily match the poses of one object class in a scene to the ground truth poses.
 Supply the errors for a single parameter like τ in VSD.
 * `scores`: `[score(est) for est in estimates]`
-* `errors_per_gt`: `[[error(est, gt) for est in estimates] for gt in annotations]`
+* `errors_per_est`: `[[error(est, gt) for gt in annotations] for es in estimates]`
 
 Returns a vector of matched errors, defaults to infinity errors to handle less estimates than ground truth annotations.
 """
-function match_errors(scores::AbstractVector{<:Real}, errors_per_gt::AbstractVector{<:AbstractVector{T}}) where {T<:Real}
-    matched_errors = fill(T(Inf), length(errors_per_gt))
+function match_errors(scores::AbstractVector{<:Real}, errors_per_est::AbstractVector{<:AbstractVector{T}}) where {T<:Real}
+    # Match length(gt) errors
+    matched_gt_errors = fill(T(Inf), length(first(errors_per_est)))
     # match each pose at most once
-    matched_indices = Int[]
-    # greedily: Start with highest score
-    sorted_indices = sortperm(scores; lt=Base.isgreater)
-    for (gt_idx, errors) in enumerate(errors_per_gt)
-        # greedily
-        sorted_errors = errors[sorted_indices]
-        for (err_idx, error) in enumerate(sorted_errors)
-            if !(err_idx in matched_indices)
-                push!(matched_indices, err_idx)
-                matched_errors[gt_idx] = error
+    matched_gt_indices = Int[]
+    # greedily: sort estimates according to their score, highest score first
+    sorted_est_indices = sortperm(scores; lt=Base.isgreater)
+    sorted_est_errors = errors_per_est[sorted_est_indices]
+    # match at most length(gt) errors
+    n_matches = min(length(sorted_est_indices), length(matched_gt_errors))
+    est_errors = sorted_est_errors[1:n_matches]
+    # greedily select the best gt
+    for gt_errors in est_errors
+        gt_indices = sortperm(gt_errors; lt=Base.isless)
+        for gt_idx in gt_indices
+            if !(gt_idx in matched_gt_indices)
+                push!(matched_gt_indices, gt_idx)
+                matched_gt_errors[gt_idx] = gt_errors[gt_idx]
                 break
             end
         end
     end
-    matched_errors
+    matched_gt_errors
 end
 
 # TODO Calc errors_per_gt and save them to a file... DataFrame[:img_id, :gt_id]?
