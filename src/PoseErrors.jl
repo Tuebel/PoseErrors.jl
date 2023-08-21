@@ -5,6 +5,11 @@ export adds_error
 export mdds_error
 export vsd_error
 
+export normalized_add_error
+export normalized_adds_error
+export normalized_mdds_error
+export normalized_vsd_error
+
 export depth_to_distance
 export model_diameter
 export reproject_3D

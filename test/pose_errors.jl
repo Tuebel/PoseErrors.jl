@@ -162,25 +162,25 @@ end
 
 @testset "Visible Surface Discrepancy" begin
     # Single pose, single τ
-    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, δ, τ)
-    vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, δ, 0.05 * model_diameter(cube_mesh))
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt; δ=δ, τ=τ)
+    vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt; δ=δ, τ=0.05 * model_diameter(cube_mesh))
     @test 0 < vsd < 1
     @test vsd != surface_discrepancy(es_dist, gt_dist, τ)
 
     # Many poses, single τ
-    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses, pose_gt, δ, τ)
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses, pose_gt, δ=δ, τ=τ)
     @test size(vsd) == (6,)
     @test error_increases(vsd)
 
     # Single pose, many τ
     taus = (reverse(BOP19_THRESHOLDS)) * model_diameter(cube_mesh)
     # Relatively large pose error required to see any difference in the vsd error
-    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses[2], pose_gt, δ, taus)
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses[2], pose_gt; δ=δ, τ=taus)
     @test size(vsd) == (10,)
     @test error_increases(vsd)
 
     # Many poses, many τ
-    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses, pose_gt, δ, taus)
+    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, poses, pose_gt; δ=δ, τ=taus)
     @test size(vsd) == (10,)
     for err in vsd
         @test size(err) == (6,)
@@ -205,7 +205,7 @@ end
     recall = @inferred discrepancy_recall_bop18(vsd)
     @test recall == (vsd < 0.3)
 
-    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, τ) for τ in model_diameter(cube_points) * BOP19_THRESHOLDS]
+    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt; δ=ITODD_δ, τ=τ) for τ in model_diameter(cube_points) * BOP19_THRESHOLDS]
     recall = @inferred discrepancy_recall_bop19(vsd)
     @test recall == mean([e < θ for e in vsd, θ in BOP19_THRESHOLDS])
 
@@ -215,8 +215,8 @@ end
     mdds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdds)
 
     #Does vectorized version result in same VSD error?
-    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, τ) for τ in model_diameter(cube_points) * BOP19_THRESHOLDS]
-    vsd_p = vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ, Array(model_diameter(cube_points) * BOP19_THRESHOLDS))
+    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt; δ=ITODD_δ, τ=τ) for τ in model_diameter(cube_points) * BOP19_THRESHOLDS]
+    vsd_p = vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt; δ=ITODD_δ, τ=Array(model_diameter(cube_points) * BOP19_THRESHOLDS))
     @test vsd == vsd_p
 
     vsd_recall = @inferred discrepancy_recall_bop19(vsd)

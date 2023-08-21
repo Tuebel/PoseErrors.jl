@@ -105,8 +105,7 @@ Provide a pre-calculated diameter since this would be the bottleneck of an other
 function bop19_vsd_recall(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, diameter, measured_dist::AbstractMatrix, es_pose::Pose, gt_pose::Pose, δ=BOP_δ)
     measured_dist = same_device(distance_context.render_data, measured_dist)
     τ = same_device(measured_dist, diameter * BOP19_THRESHOLDS)
-    vsd_err = vsd_error(distance_context, cv_camera, mesh, measured_dist, es_pose, gt_pose, δ, τ)
-    # TODO BOP only considers objects with at least 10% visibility
+    vsd_err = vsd_error(distance_context, cv_camera, mesh, measured_dist, es_pose, gt_pose; δ=δ, τ=τ)
     # Run on CPU
     discrepancy_recall_bop19(Array(vsd_err))
 end

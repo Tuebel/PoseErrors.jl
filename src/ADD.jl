@@ -4,18 +4,33 @@
 
 """
     add_error(points, estimate, ground_truth)
-Average Distance of Model Points for objects with no indistinguishable views (Hinterstoisser et al. 2012).
+"Average Distance of Model Points for objects with no indistinguishable views" (Hinterstoisser et al. 2012).
 Reimplementation of [https://github.com/thodan/bop_toolkit/blob/master/bop_toolkit_lib/pose_error.py](BOP-toolkit).
 """
 add_error(points, estimate, ground_truth) = mean(model_point_distances(points, estimate, ground_truth))
 
 """
+    normalized_add_error(points, estimate, ground_truth)
+Normalized version of "Average Distance of Model Points for objects with no indistinguishable views" (Hinterstoisser et al. 2012).
+The error is divided by the diameter of the point cloud.
+"""
+normalized_add_error(points, estimate, ground_truth) = add_error(points, estimate, ground_truth) / model_diameter(points)
+
+
+"""
     adds_error(points, estimate, ground_truth)
-Average Distance of Model Points for objects with indistinguishable views (Hinterstoisser et al. 2012).
+"Average Distance of Model Points for objects with indistinguishable views" (Hinterstoisser et al. 2012).
 Also known as ADD-S or ADI.
 Reimplementation of [https://github.com/thodan/bop_toolkit/blob/master/bop_toolkit_lib/pose_error.py](BOP-toolkit).
 """
 adds_error(points, estimate, ground_truth) = mean(nearest_neighbor_distances(points, estimate, ground_truth))
+
+"""
+    normalized_adds_error(points, estimate, ground_truth)
+Normalized version of "Average Distance of Model Points for objects with indistinguishable views" (Hinterstoisser et al. 2012).
+The error is divided by the diameter of the point cloud.
+"""
+normalized_adds_error(points, estimate, ground_truth) = adds_error(points, estimate, ground_truth) / model_diameter(points)
 
 """
     mdds_error(points, estimate, ground_truth)
@@ -24,6 +39,13 @@ Adaption of the ADD-S error to avoid higher frequency surface features and provi
 Compared to the Maximum Symmetry-Aware Surface Distance (MSSD) used in the BOP challenge, this method avoids having to define / identify symmetries explicitly.
 """
 mdds_error(points, estimate, ground_truth) = maximum(nearest_neighbor_distances(points, estimate, ground_truth))
+
+"""
+    normalized_mdds_error(points, estimate, ground_truth)
+Normalized version of "Maximum Distance of Model Points for objects with indistinguishable views".
+The error is divided by the diameter of the point cloud.
+"""
+normalized_mdds_error(points, estimate, ground_truth) = mdds_error(points, estimate, ground_truth) / model_diameter(points)
 
 """
     nearest_neighbor_distances(points, estimate, ground_truth)

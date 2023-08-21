@@ -4,7 +4,7 @@
 
 
 """
-    vsd_error(distance_context, cv_camera, mesh, measured_dist, es_poses, gt_pose, [δ=0.015, τ=0.02])
+    vsd_error(distance_context, cv_camera, mesh, measured_dist, es_poses, gt_pose; [δ=0.015, τ=0.02])
 Calculate the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
 Note that the `distance_context` and `measured_dist` must be / produce a distance map not a depth image.
 δ is used as tolerance for the visibility masks and τ is the misalignment tolerance.
@@ -13,7 +13,7 @@ Multiple estimated poses `es_poses` as well as a range of `τ` might be provided
 Default values `δ=15mm` and `τ=20mm` are the ones used in BOP18, BOP19 and later use a range of `τ=0.05:0.05:0.5` of the object diameter.
 The BOP18 should only be used for parameter tuning and not evaluating the final scores.
 """
-function vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose, δ=BOP_δ, τ=BOP_18_τ)
+function vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose; δ=BOP_δ, τ=BOP_18_τ)
     camera = Camera(cv_camera)
     model = upload_mesh(distance_context, mesh)
 
@@ -27,6 +27,17 @@ function vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh
     es_masked = @. visibility_es(es_dist, measured_dist, δ, gt_visible) * es_dist
 
     surface_discrepancy(es_masked, gt_masked, τ)
+end
+
+"""
+    normalized_vsd_error(distance_context, cv_camera, mesh, measured_dist, es_poses, gt_pose; [δ=0.015, τ=0.02])
+Normalized version of the visible surface discrepancy according to [BOP19](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/).
+Values of τ are multiplied by the object diameter.
+"""
+function normalized_vsd_error(distance_context::OffscreenContext, cv_camera::CvCamera, mesh::Mesh, measured_dist::AbstractMatrix, es_poses, gt_pose::Pose; δ=BOP_δ, τ=BOP_18_τ)
+    diameter = model_diameter(mesh.position)
+    normalized_τ = τ .* diameter
+    vsd_error(distance_context, cv_camera, mesh, measured_dist, es_poses, gt_pose; δ=δ, τ=normalized_τ)
 end
 
 """
