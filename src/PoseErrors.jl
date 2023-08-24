@@ -41,6 +41,7 @@ export train_targets
 
 # BOP dataset evaluation
 export match_errors
+export match_bop19_errors
 export recall
 export threshold_errors
 

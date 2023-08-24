@@ -36,6 +36,22 @@ function match_errors(scores::AbstractVector{<:Real}, errors_per_est::AbstractVe
     matched_gt_errors
 end
 
+"""
+    match_bop19_errors(scores, errors_per_est)
+If for each estimate - ground truth combination multiple errors have been calculated, e.g. in VSD BOP for θ ∈ 0:.05:.5.
+`errors_per_est` = `[[[err_for_θ for err_for_θ in gt] for gt in est] for est in estimates]`
+"""
+function match_bop19_errors(scores, errors_per_est)
+    # Matrix with dimss [θ, ground truth, estimate]
+    err_θ_gt_est = stack(stack(errors_per_est))
+    matched_θ_gt = map(eachslice(err_θ_gt_est; dims=1)) do err_gt_est
+        vec_gt_est = [Vector(col) for col in eachcol(err_gt_est)]
+        match_errors(scores, vec_gt_est)
+    end
+    # Results are stored in data frame with gt as rows not θ
+    [Vector(col) for col in eachrow(stack(matched_θ_gt))]
+end
+
 # TODO Calc errors_per_gt and save them to a file... DataFrame[:img_id, :gt_id]?
 
 """
