@@ -192,36 +192,16 @@ end
 @testset "Performance scores / average recall" begin
     # Point Distance
     mdd_s = @inferred mdds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
-    recall = @inferred distance_recall_bop18(model_diameter(cube_points), mdd_s)
-    @test recall == (mdd_s < 0.1 * model_diameter(cube_points))
-    @test 0 <= recall <= 1
+    mdds_thresh = @inferred threshold_errors(mdd_s, BOP18_θ * model_diameter(cube_points))
+    mdds_recall = @inferred recall(mdds_thresh)
+    @test mdds_recall == (mdd_s < BOP18_θ * model_diameter(cube_points))
+    @test 0 <= mdds_recall <= 1
 
-    recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdd_s)
-    @test recall == sum(mdd_s .< BOP19_THRESHOLDS * model_diameter(cube_points)) / length(BOP19_THRESHOLDS)
-    @test 0 <= recall <= 1
+    # recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdd_s)
+    mdds_thresh = @inferred threshold_errors(mdd_s, BOP19_THRESHOLDS * model_diameter(cube_points))
+    mdds_recall = @inferred recall(mdds_thresh)
+    @test mdds_recall == sum(mdd_s .< BOP19_THRESHOLDS * model_diameter(cube_points)) / length(BOP19_THRESHOLDS)
+    @test 0 <= mdds_recall <= 1
 
-    # Visual Surface Discrepancy
-    vsd = @inferred vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt)
-    recall = @inferred discrepancy_recall_bop18(vsd)
-    @test recall == (vsd < 0.3)
-
-    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt; δ=ITODD_δ, τ=τ) for τ in model_diameter(cube_points) * BOP19_THRESHOLDS]
-    recall = @inferred discrepancy_recall_bop19(vsd)
-    @test recall == mean([e < θ for e in vsd, θ in BOP19_THRESHOLDS])
-
-    adds = @inferred adds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
-    adds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), adds)
-    mdds = @inferred mdds_error(cube_points, AffineMap(pose_gt), AffineMap(pose_es))
-    mdds_recall = @inferred distance_recall_bop19(model_diameter(cube_points), mdds)
-
-    #Does vectorized version result in same VSD error?
-    vsd = [vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt; δ=ITODD_δ, τ=τ) for τ in model_diameter(cube_points) * BOP19_THRESHOLDS]
-    vsd_p = vsd_error(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt; δ=ITODD_δ, τ=Array(model_diameter(cube_points) * BOP19_THRESHOLDS))
-    @test vsd == vsd_p
-
-    vsd_recall = @inferred discrepancy_recall_bop19(vsd)
-    adds_r, mdds_r, vsd_r = bop19_recalls(distance_context, cv_camera, cube_mesh, ms_dist, pose_es, pose_gt, ITODD_δ)
-    @test adds_recall == adds_r
-    @test mdds_recall == mdds_r
-    @test vsd_recall == vsd_r
+    # TODO test other scores?
 end

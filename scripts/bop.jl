@@ -62,10 +62,10 @@ depth_img ./ maximum(depth_img) .|> Gray
 mask_img = load_mask_image(row, WIDTH, HEIGHT)
 color_img .* mask_img
 
-subset_path = joinpath(pwd(), "datasets", "tless", "test_primesense")
-train_df = train_targets(subset_path, 12)
-@assert train_df.inst_count[1] == 2
-row = train_df[1, :]
+subset_path = joinpath(pwd(), "datasets", "tless", "train_pbr")
+train_df = train_targets(subset_path, 4)
+@assert train_df.inst_count[14] == 3
+row = train_df[14, :]
 color_img = load_color_image(row, WIDTH, HEIGHT);
 depth_img = load_depth_image(row, WIDTH, HEIGHT);
 depth_img ./ maximum(depth_img) .|> Gray
