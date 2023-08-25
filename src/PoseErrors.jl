@@ -16,7 +16,7 @@ export reproject_3D
 export surface_discrepancy
 export visibility_es, visibility_gt
 
-export BOP19_THRESHOLDS, BOP_δ, ITODD_δ, BOP_18_τ, ADDS_θ, BOP18_θ
+export BOP19_THRESHOLDS, BOP_δ, ITODD_δ, BOP18_τ, ADDS_θ, BOP18_θ
 export bop19_recalls, bop19_vsd_recall
 export discrepancy_recall_bop18
 export discrepancy_recall_bop19
