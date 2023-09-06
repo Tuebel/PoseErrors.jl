@@ -7,9 +7,3 @@
 Combines sum and dropdims along dims.
 """
 dropsum(x; dims) = dropdims(sum(x; dims=dims); dims=dims)
-
-"""
-    inf_to_one(x)
-If x is infinity the one is returned, x otherwise
-"""
-inf_to_one(x) = isinf(x) ? one(x) : x
