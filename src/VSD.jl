@@ -80,12 +80,9 @@ function surface_discrepancy(es_dist::AbstractArray, gt_dist::AbstractArray, τ:
     # VSD is a modification of the CoU metric with additional costs for large distances 
     union = dropsum(@. es_dist > 0 || gt_dist > 0; dims=(1, 2))
     complement = dropsum(discrepancy_cost.(es_dist, gt_dist, τ); dims=(1, 2))
-    if union == 0
-        # union == 0 → no pixel rendered → pose out of view → definitely wrong  → return limit
-        return one(τ)
-    else
-        return complement ./ union
-    end
+    complement_over_union = complement ./ union
+    # union == 0 → no pixel rendered → pose out of view → definitely wrong  → return limit
+    infnan_to_one.(complement_over_union)
 end
 
 surface_discrepancy(es_dist::AbstractArray, gt_dist::AbstractArray, τ::AbstractVector{<:Real}) = [surface_discrepancy(es_dist, gt_dist, x) for x in τ]

@@ -7,3 +7,9 @@
 Combines sum and dropdims along dims.
 """
 dropsum(x; dims) = dropdims(sum(x; dims=dims); dims=dims)
+
+"""
+    infnan_to_one(x)
+If x is infinity or nan the one is returned, x otherwise
+"""
+infnan_to_one(x) = isinf(x) || isnan(x) ? one(x) : x
