@@ -56,6 +56,7 @@ export distance_recall_bop19
 # BOP dataset loading and preprocessing
 export crop_camera
 export crop_diameter
+export crop_image
 export depth_resize
 export load_color_image
 export load_depth_image

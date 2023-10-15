@@ -61,7 +61,7 @@ full_img = draw(gl_context, scene) |> copy
     bounding_box = @inferred PoseErrors.center_diameter_boundingbox(cv_camera, cube.pose.translation.translation, cube_diameter)
     # Verified visually
     @test bounding_box == (257, 600, 157, 400)
-    crop_img = @inferred PoseErrors.crop_image(full_img, bounding_box...)
+    crop_img = @inferred crop_image(full_img, bounding_box...)
     @test size(crop_img) == (344, 244)
     @test minimum(crop_img[crop_img.>0]) ≈ 0.6
 end
@@ -77,7 +77,7 @@ cube = @set cube.pose.translation = Translation(0.2, 0.2, 0.7)
 camera = crop(cv_camera, bounding_box...)
 scene = Scene(camera, [cube])
 crop_render = draw(gl_context, scene) |> copy
-crop_img = PoseErrors.crop_image(full_img, bounding_box...)
+crop_img = crop_image(full_img, bounding_box...)
 resized = @inferred depth_resize(crop_img, RE_SIZE...)
 sum_drawn = sum(resized .> 0)
 
@@ -120,7 +120,7 @@ cube = @set cube.pose.translation = Translation(0.2, 0.2, 0.7)
 camera = Camera(cv_camera)
 scene = Scene(camera, [cube])
 full_img = draw(gl_context, scene) |> copy
-crop_img = PoseErrors.crop_image(full_img, bounding_box...)
+crop_img = crop_image(full_img, bounding_box...)
 resized = @inferred depth_resize(crop_img, RE_SIZE...)
 
 gl_context = depth_offscreen_context((RE_SIZE)..., 1, Array)
