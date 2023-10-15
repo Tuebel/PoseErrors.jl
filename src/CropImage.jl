@@ -18,10 +18,10 @@ function SciGL.crop(camera::CvCamera, image::AbstractMatrix, center3d::AbstractV
 end
 
 """
-    crop_camera(cam, center3d, diameter)
+    crop(cam, center3d, diameter)
 Returns a cropped CvCamera centered at `center3d` with a square of 1.5x the model `diameter`.
 """
-function crop_camera(cam::CvCamera, center3d::AbstractVector, diameter)
+function SciGL.crop(cam::CvCamera, center3d::AbstractVector, diameter)
     bounding_box = PoseErrors.center_diameter_boundingbox(cam, center3d, diameter)
     crop(cam, bounding_box...)
 end
