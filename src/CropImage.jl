@@ -8,7 +8,7 @@ using SciGL
 
 """
     crop(camera, image, center3d, diameter)
-Crops the CvCamera and the image to a square of 1.5x the model `diameter`, centered at `center3d`. 
+Jointly crops the CvCamera and the image to a square of 1.5x the model `diameter`, centered at `center3d`. 
 """
 function SciGL.crop(camera::CvCamera, image::AbstractMatrix, center3d::AbstractVector, diameter)
     bounding_box = PoseErrors.center_diameter_boundingbox(camera, center3d, diameter)
@@ -24,6 +24,15 @@ Returns a cropped CvCamera centered at `center3d` with a square of 1.5x the mode
 function SciGL.crop(cam::CvCamera, center3d::AbstractVector, diameter)
     bounding_box = PoseErrors.center_diameter_boundingbox(cam, center3d, diameter)
     crop(cam, bounding_box...)
+end
+
+"""
+    crop(image, center3d, diameter)
+Crops the image to a square of 1.5x the model `diameter`, centered at `center3d`. 
+"""
+function SciGL.crop(image::AbstractMatrix, center3d::AbstractVector, diameter)
+    bounding_box = PoseErrors.center_diameter_boundingbox(camera, center3d, diameter)
+    crop_image(image, bounding_box...)
 end
 
 # Compared to SciGL no conversion between OpenGL and OpenCV conventions required
