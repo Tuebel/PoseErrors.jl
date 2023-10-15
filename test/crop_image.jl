@@ -67,7 +67,8 @@ full_img = draw(gl_context, scene) |> copy
 end
 
 # Resize cropped image to viewport size
-bounding_box = PoseErrors.center_diameter_boundingbox(cv_camera, cube.pose.translation.translation, cube_diameter)
+camera, crop_img =
+    bounding_box = PoseErrors.center_diameter_boundingbox(cv_camera, cube.pose.translation.translation, cube_diameter)
 
 gl_context = depth_offscreen_context((RE_SIZE)..., 1, Array)
 cube_diameter = model_diameter(cube_mesh)
@@ -77,20 +78,20 @@ camera = crop(cv_camera, bounding_box...)
 scene = Scene(camera, [cube])
 crop_render = draw(gl_context, scene) |> copy
 crop_img = PoseErrors.crop_image(full_img, bounding_box...)
-resized = @inferred PoseErrors.depth_resize(crop_img, RE_SIZE...)
+resized = @inferred depth_resize(crop_img, RE_SIZE...)
 sum_drawn = sum(resized .> 0)
 
 @testset "Resize image" begin
     EPS = 3e-3
     # "correct" nearest neighbor implementation with bad results
-    resized = @inferred PoseErrors.depth_resize(crop_img, RE_SIZE...)
+    resized = @inferred depth_resize(crop_img, RE_SIZE...)
     @test size(resized) == RE_SIZE
     @test minimum(resized[resized.>0]) ≈ 0.6
     sum_const = sum(abs.(resized - crop_render) .> EPS)
     @test sum_const / sum_drawn < 0.1
 
     # my (bad) attempt of a custom implementation without interpolations
-    resized = PoseErrors.depth_resize_custom(crop_img, RE_SIZE)
+    resized = depth_resize_custom(crop_img, RE_SIZE)
     @test size(resized) == RE_SIZE
     @test minimum(resized[resized.>0]) ≈ 0.6
     sum_custom = sum(abs.(resized - crop_render) .> EPS)
@@ -120,7 +121,7 @@ camera = Camera(cv_camera)
 scene = Scene(camera, [cube])
 full_img = draw(gl_context, scene) |> copy
 crop_img = PoseErrors.crop_image(full_img, bounding_box...)
-resized = @inferred PoseErrors.depth_resize(crop_img, RE_SIZE...)
+resized = @inferred depth_resize(crop_img, RE_SIZE...)
 
 gl_context = depth_offscreen_context((RE_SIZE)..., 1, Array)
 cube = upload_mesh(gl_context, cube_mesh)
@@ -132,14 +133,14 @@ crop_render = draw(gl_context, scene) |> copy
 @testset "Resize slim objects" begin
     EPS = 3e-3
     # "correct" nearest neighbor implementation with bad results
-    resized = @inferred PoseErrors.depth_resize(crop_img, RE_SIZE...)
+    resized = @inferred depth_resize(crop_img, RE_SIZE...)
     @test size(resized) == RE_SIZE
     @test minimum(resized[resized.>0]) ≈ 0.6
     sum_const = sum(abs.(resized - crop_render) .> EPS)
     @test sum_const / sum_drawn < 0.1
 
     # my attempt of a custom implementation without interpolations
-    resized = PoseErrors.depth_resize_custom(crop_img, RE_SIZE)
+    resized = depth_resize_custom(crop_img, RE_SIZE)
     @test size(resized) == RE_SIZE
     @test minimum(resized[resized.>0]) ≈ 0.6
     sum_custom = sum(abs.(resized - crop_render) .> EPS)

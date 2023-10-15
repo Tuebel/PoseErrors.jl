@@ -4,6 +4,27 @@
 
 import ImageTransformations
 using Interpolations: Constant
+using SciGL
+
+"""
+    crop(camera, image, center3d, diameter)
+Crops the CvCamera and the image to a square of 1.5x the model `diameter`, centered at `center3d`. 
+"""
+function SciGL.crop(camera::CvCamera, image::AbstractMatrix, center3d::AbstractVector, diameter)
+    bounding_box = PoseErrors.center_diameter_boundingbox(camera, center3d, diameter)
+    cam = crop(cam, bounding_box...)
+    img = crop_image(image, bounding_box...)
+    cam, img
+end
+
+"""
+    crop_camera(cam, center3d, diameter)
+Returns a cropped CvCamera centered at `center3d` with a square of 1.5x the model `diameter`.
+"""
+function crop_camera(cam::CvCamera, center3d::AbstractVector, diameter)
+    bounding_box = PoseErrors.center_diameter_boundingbox(cam, center3d, diameter)
+    crop(cam, bounding_box...)
+end
 
 # Compared to SciGL no conversion between OpenGL and OpenCV conventions required
 
@@ -71,7 +92,7 @@ depth_resize(img, args...; kwargs...) = ImageTransformations.imresize(img, args.
 
 # Images are loaded using [x,y] convention instead of julias [y,x] convention
 """
-    crop_img(img, left, right, top, bottom, [width, height])    
+    crop_image(img, left, right, top, bottom, [width, height])    
 Convenience method to create a view of the image for the bounding box coordinates.
 Optionally provide `width, height` to resize the image using a nearest neighbor interpolation.
 """
