@@ -91,7 +91,7 @@ sum_drawn = sum(resized .> 0)
     @test sum_const / sum_drawn < 0.1
 
     # my (bad) attempt of a custom implementation without interpolations
-    resized = depth_resize_custom(crop_img, RE_SIZE)
+    resized = PoseErrors.depth_resize_custom(crop_img, RE_SIZE)
     @test size(resized) == RE_SIZE
     @test minimum(resized[resized.>0]) ≈ 0.6
     sum_custom = sum(abs.(resized - crop_render) .> EPS)
@@ -140,7 +140,7 @@ crop_render = draw(gl_context, scene) |> copy
     @test sum_const / sum_drawn < 0.1
 
     # my attempt of a custom implementation without interpolations
-    resized = depth_resize_custom(crop_img, RE_SIZE)
+    resized = PoseErrors.depth_resize_custom(crop_img, RE_SIZE)
     @test size(resized) == RE_SIZE
     @test minimum(resized[resized.>0]) ≈ 0.6
     sum_custom = sum(abs.(resized - crop_render) .> EPS)
