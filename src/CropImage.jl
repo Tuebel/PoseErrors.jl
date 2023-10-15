@@ -12,18 +12,18 @@ Jointly crops the CvCamera and the image to a square of 1.5x the model `diameter
 """
 function SciGL.crop(camera::CvCamera, image::AbstractMatrix, center3d::AbstractVector, diameter)
     bounding_box = PoseErrors.center_diameter_boundingbox(camera, center3d, diameter)
-    cam = crop(cam, bounding_box...)
+    cam = crop(camera, bounding_box...)
     img = crop_image(image, bounding_box...)
     cam, img
 end
 
 """
-    crop(cam, center3d, diameter)
+    crop(camera, center3d, diameter)
 Returns a cropped CvCamera centered at `center3d` with a square of 1.5x the model `diameter`.
 """
-function SciGL.crop(cam::CvCamera, center3d::AbstractVector, diameter)
-    bounding_box = PoseErrors.center_diameter_boundingbox(cam, center3d, diameter)
-    crop(cam, bounding_box...)
+function SciGL.crop(camera::CvCamera, center3d::AbstractVector, diameter)
+    bounding_box = PoseErrors.center_diameter_boundingbox(camera, center3d, diameter)
+    crop(camera, bounding_box...)
 end
 
 # Compared to SciGL no conversion between OpenGL and OpenCV conventions required
