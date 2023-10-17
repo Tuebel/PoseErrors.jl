@@ -51,12 +51,12 @@ end
 
 """
     clamp_boundingbox(left, right, top, bottom, width, height)
-Clamp the corners of the bounding box (left, right, top, bottom) to the camera's image dimensions (0, 0, width, height).
+Clamp the corners of the bounding box (left, right, top, bottom) to the camera's image dimensions (1, 1, width, height).
 """
 function clamp_boundingbox(left, right, top, bottom, width, height)
-    left = max(left, zero(left))
+    left = max(left, one(left))
     right = min(right, width)
-    top = max(top, zero(top))
+    top = max(top, one(top))
     bottom = min(bottom, height)
     left, right, top, bottom
 end
