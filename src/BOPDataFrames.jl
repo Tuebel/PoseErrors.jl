@@ -192,14 +192,7 @@ load_color_image(df_row, width, height) = load_image(df_row.color_path, df_row, 
 Load the mask image which includes only the visible parts, crop it, and resize it to (width, height).
 See also [load_visib_mask_image](@ref)
 """
-function load_mask_image(df_row, width, height)
-    if ("mask_visib_path" in names(df_row))
-        load_image(df_row.mask_visib_path, df_row, width, height)
-    elseif ("segmentation" in names(df_row))
-        mask_img = load_segmentation(df_row)
-        crop_image(transpose(mask_img), df_row.bbox..., width, height)
-    end .|> Bool
-end
+load_mask_image(df_row, width, height) = load_image(df_row.mask_visib_path, df_row, width, height) .|> Bool
 
 """
    load_mesh(df_row)
@@ -213,6 +206,16 @@ Load the evaluation mesh file from the disk and scale it to meters.
 Use it only for point distance metrics like ADDS or MDDS.
 """
 load_mesh_eval(df_row) = Scale(Float32(1e-3))(load(df_row.mesh_eval_path))
+
+"""
+   load_segmentation(df_row, width, height)
+Load the segmentation mask, crop it, and resize it to (width, height).
+See also [load_visib_mask_image](@ref)
+"""
+function load_segmentation(df_row, width, height)
+    mask_img = load_segmentation(df_row)
+    crop_image(transpose(mask_img), df_row.bbox..., width, height) .|> Bool
+end
 
 """
     load_segmentation(df_row)
