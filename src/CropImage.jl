@@ -96,7 +96,11 @@ depth_resize(img, args...; kwargs...) = ImageTransformations.imresize(img, args.
 Convenience method to create a view of the image for the bounding box coordinates.
 Optionally provide `width, height` to resize the image using a nearest neighbor interpolation.
 """
-crop_image(img, left, right, top, bottom) = @view img[left:right, top:bottom]
+function crop_image(img, left, right, top, bottom)
+    # Avoid out of bounds
+    left, right, top, bottom = clamp_boundingbox(left, right, top, bottom, size(img)...)
+    @view img[left:right, top:bottom]
+end
 crop_image(img, left, right, top, bottom, width, height) = depth_resize(crop_image(img, left, right, top, bottom), width, height)
 
 

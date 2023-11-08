@@ -24,8 +24,8 @@ cam_pose = one(Pose)
 
 @testset "Crop primitives" begin
     # Clamp to area which the camera can capture
-    @test PoseErrors.clamp_boundingbox(-10, 30, 0, 20, 20, 20) == (0, 20, 0, 20)
-    @test PoseErrors.clamp_boundingbox(0, 20, -10, 30, 20, 20) == (0, 20, 0, 20)
+    @test PoseErrors.clamp_boundingbox(-10, 30, 0, 20, 20, 20) == (1, 20, 1, 20)
+    @test PoseErrors.clamp_boundingbox(0, 20, -10, 30, 20, 20) == (1, 20, 1, 20)
     @test PoseErrors.clamp_boundingbox(5, 15, 5, 15, 20, 20) == (5, 15, 5, 15)
 
     # should be in the center
