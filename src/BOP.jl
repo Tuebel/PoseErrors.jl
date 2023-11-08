@@ -11,9 +11,9 @@ Supply the errors for a single parameter like τ in VSD.
 
 Returns a vector of matched errors, defaults to infinity errors to handle less estimates than ground truth annotations.
 """
-function match_errors(scores::AbstractVector{<:Real}, errors_per_est::AbstractVector{<:AbstractVector{T}}) where {T<:Real}
+function match_errors(scores::AbstractVector, errors_per_est::AbstractVector{<:AbstractVector})
     # Match length(gt) errors
-    matched_gt_errors = fill(T(Inf), length(first(errors_per_est)))
+    matched_gt_errors = fill(Inf, length(first(errors_per_est)))
     # match each pose at most once
     matched_gt_indices = Int[]
     # greedily: sort estimates according to their score, highest score first
