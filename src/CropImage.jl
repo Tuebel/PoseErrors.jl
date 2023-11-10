@@ -88,7 +88,10 @@ Even though nearest neighbor `Constant()` interpolation might be the correct one
 However, for slim objects, the nearest neighbor interpolation performs better, since real cameras do not interpolate at discontinuous edges.
 Calls ImageTransformations.jl `imresize(img, args...; kwargs..., method=Constant())`
 """
-depth_resize(img, args...; kwargs...) = ImageTransformations.imresize(img, args...; kwargs..., method=Constant())
+function depth_resize(img, args...; kwargs...)
+    args = round.(Int, args)
+    ImageTransformations.imresize(img, args...; kwargs..., method=Constant())
+end
 
 # Images are loaded using [x,y] convention instead of julias [y,x] convention
 """
