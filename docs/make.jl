@@ -3,5 +3,6 @@
 # All rights reserved. 
 
 using Documenter, PoseErrors
+import Documenter.Remotes: GitLab
 
-makedocs(sitename="PoseErrors.jl")
+makedocs(sitename="PoseErrors.jl", repo=GitLab("git-ce.rwth-aachen.de", "diss", "poseerrors.jl"))
