@@ -5,7 +5,7 @@
 default:
   image: julia:1.9-bullseye
   before_script:
-    - apt update && apt install -y xvfb
+    - apt update && apt install -y xvfb git
     # Add repo dependencies
     - sed -i "s|https://git-ce.|https://gitlab-ci-token:$CI_JOB_TOKEN@git-ce.|g" Manifest.toml
     - xvfb-run -a julia --project=@. -e 'import Pkg; Pkg.instantiate(); Pkg.build();'
