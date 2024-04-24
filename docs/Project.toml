@@ -1,0 +1,4 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+PoseErrors = "0e048aec-5af0-406a-9f6c-fdc882ab1032"
+SciGL = "e33cfb9f-2574-42f7-bc46-3c25fa028886"
