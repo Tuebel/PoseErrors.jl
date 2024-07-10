@@ -2,6 +2,11 @@
 [![Documenter](https://github.com/rwth-irt/PoseErrors.jl/actions/workflows/documenter.yml/badge.svg)](https://github.com/rwth-irt/PoseErrors.jl/actions/workflows/documenter.yml)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://rwth-irt.github.io/PoseErrors.jl)
 
+# About
+This code has been produced during while writing my Ph.D. (Dr.-Ing.) thesis at the institut of automatic control, RWTH Aachen University.
+If you find it helpful for your research please cite this:
+> T. Redick, „Bayesian inference for CAD-based pose estimation on depth images for robotic manipulation“, RWTH Aachen University, 2024. doi: 10.18154/RWTH-2024-04533.
+
 # PoseErrors.jl
 A good overview and rationale behind 6D pose error metrics can be found in the [BOP-challenge](https://bop.felk.cvut.cz/challenges/bop-challenge-2019/#evaluationmethodology).
 They prefer Maximum Symmetry-Aware Surface Distance (MSSD) over Averade Average Distance of Model Points with indistinguishable views (ADD-S = ADI), because they can yield low errors with bad visual alignment.
