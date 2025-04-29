@@ -1,6 +1,6 @@
-[![Run Tests](https://github.com/rwth-irt/PoseErrors.jl/actions/workflows/run_tests.yml/badge.svg)](https://github.com/rwth-irt/PoseErrors.jl/actions/workflows/run_tests.yml)
-[![Documenter](https://github.com/rwth-irt/PoseErrors.jl/actions/workflows/documenter.yml/badge.svg)](https://github.com/rwth-irt/PoseErrors.jl/actions/workflows/documenter.yml)
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://rwth-irt.github.io/PoseErrors.jl)
+[![Run Tests](https://github.com/Tuebel/PoseErrors.jl/actions/workflows/run_tests.yml/badge.svg)](https://github.com/Tuebel/PoseErrors.jl/actions/workflows/run_tests.yml)
+[![Documenter](https://github.com/Tuebel/PoseErrors.jl/actions/workflows/documenter.yml/badge.svg)](https://github.com/Tuebel/PoseErrors.jl/actions/workflows/documenter.yml)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://Tuebel.github.io/PoseErrors.jl)
 
 # About
 This code has been produced during while writing my Ph.D. (Dr.-Ing.) thesis at the institut of automatic control, RWTH Aachen University.
