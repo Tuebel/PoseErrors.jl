@@ -6,4 +6,4 @@ SciGL = "e33cfb9f-2574-42f7-bc46-3c25fa028886"
 
 [sources]
 GLAbstraction = {url="https://github.com/Tuebel/GLAbstraction.jl"}
-SciGL = {url="https://github.com/rwth-irt/SciGL.jl"}
+SciGL = {url="https://github.com/Tuebel/SciGL.jl"}

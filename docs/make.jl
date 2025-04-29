@@ -6,4 +6,4 @@ using Documenter, PoseErrors
 import Documenter.Remotes: GitLab
 
 makedocs(sitename="PoseErrors")
-deploydocs(repo="github.com/rwth-irt/PoseErrors.jl.git")
+deploydocs(repo="github.com/Tuebel/PoseErrors.jl.git")
