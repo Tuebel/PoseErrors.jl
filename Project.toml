@@ -32,7 +32,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
 GLAbstraction = {url="https://github.com/Tuebel/GLAbstraction.jl"}
-SciGL = {url="https://github.com/rwth-irt/SciGL.jl"}
+SciGL = {url="https://github.com/Tuebel/SciGL.jl"}
 
 [targets]
 test = ["Random", "Test"]
